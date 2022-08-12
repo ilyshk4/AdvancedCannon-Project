@@ -113,15 +113,7 @@ namespace AdvancedCannon
 
                             // DEBUG:Debug.Log($"Armor thickness: {thickness}mm");
 
-                            float amplifiedAngle = arCap ? Mathf.Max(angle - Random.Range(0, Mod.Config.ArmorPiercingCapAngleReduce), 0) : angle;
-
-                            if (fsds)
-                                amplifiedAngle = Mathf.Max(0, amplifiedAngle - Mod.Config.FSDS_AngleReduce);
-
-                            float penetration =
-                                Mathf.Pow(relativeVelocity / 2200, 1.43F)
-                                * (Mathf.Pow(body.mass, 0.71F) / Mathf.Pow(caliber / 100, 1.07F))
-                                * Mathf.Pow(Mathf.Cos(amplifiedAngle), 1.4F) * 100;
+                            float penetration = CalculatePenetration(angle, relativeVelocity, body.mass, caliber, arCap, fsds);
 
                             // DEBUG:Debug.Log($"Final penetration: {penetration}mm");
 
@@ -137,8 +129,7 @@ namespace AdvancedCannon
                             if (penetration > thickness)
                             {
                                 transform.position = exit;
-                                float exitAngle = Random.Range(0, angle * 0.2F +
-                                    (ballisticCap ? Mod.Config.BallisticCapExitAngle : Mod.Config.BaseExitAngle)) * penetrationPower;
+                                float exitAngle = Random.Range(0, (ballisticCap ? Mod.Config.BallisticCapExitAngle : Mod.Config.BaseExitAngle)) * penetrationPower;
 
                                 exitAngle = Mathf.Clamp(exitAngle, 0, 80 - angle);
 
@@ -150,7 +141,7 @@ namespace AdvancedCannon
 
                                     float originalShellSpeed = body.velocity.magnitude;
                                     int fragmentsCount = Mathf.CeilToInt(powerPerArea * 0.01F * Mod.Config.SpallingFragmentsFactor);
-                                    fragmentsCount = Mathf.Clamp(fragmentsCount, 0, 25);
+                                    fragmentsCount = Mathf.Clamp(fragmentsCount, 5, 25);
                                     fragmentsCone *= powerPerArea * 0.0015F * Mod.Config.SpallingConeFactor;
 
                                     float fragmentsTotalMass = 0.033F * surface.currentType.density;
@@ -229,7 +220,24 @@ namespace AdvancedCannon
 
             _lastPosition = transform.position;
             AddPoint(transform.position);
-        }   
+        }
+
+        public static float CalculatePenetration(float angle, float velocity, float mass, float caliber, bool arCap, bool fsds)
+        {
+            float amplifiedAngle = arCap ? Mathf.Max(angle - Mod.Config.ArmorPiercingCapAngleReduce * Mathf.Deg2Rad, 0) : angle;
+
+            if (fsds)
+                amplifiedAngle = Mathf.Max(0, amplifiedAngle - Mod.Config.FSDS_AngleReduce * Mathf.Deg2Rad);
+
+            amplifiedAngle = Mathf.Clamp(amplifiedAngle, 0, 90 * Mathf.Deg2Rad);
+
+            float penetration =
+                Mathf.Pow(velocity / 2200, 1.43F)
+                * (Mathf.Pow(mass, 0.71F) / Mathf.Pow(caliber / 100, 1.07F))
+                * Mathf.Pow(Mathf.Cos(amplifiedAngle), 1.4F) * 100;
+
+            return penetration;
+        }
 
         private void SpawnHighExplosion()
         {

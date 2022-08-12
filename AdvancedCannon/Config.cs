@@ -49,6 +49,6 @@ namespace AdvancedCannon
         [XmlElement] public float FSDS_ConeScale = 3F;
         [XmlElement] public float FSDS_AngleReduce = 30F;
 
-        [XmlElement] public float HEAT_VelocityPerKilo = 800F;
+        [XmlElement] public float HEAT_VelocityPerKilo = 1000F;
     }
 }

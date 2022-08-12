@@ -39,7 +39,7 @@ namespace AdvancedCannon
             explosiveFiller = BlockBehaviour.AddSlider("Explosive Filler", "explosive-filler", 0, 0, 2F, "", "kg");
             explosiveDistance = BlockBehaviour.AddSlider("Explosive Distance", "explosive-distance", 0, 0, 2F, "", "m");
             explosiveDelay = BlockBehaviour.AddSlider("Fuse Delay", "explosive-delay", 5, 0, 100F, "", "mm");
-
+            
             apCap = AddToggle("AP Cap", "ap-cap", false);
             bCap = AddToggle("B Cap", "b-cap", false);
             mode = AddMenu("mode", 0, MODES);
@@ -48,6 +48,22 @@ namespace AdvancedCannon
             Mode_ValueChanged(0);
 
             caliber.ValueChanged += Caliber_ValueChanged;
+        }
+
+        private int GetPenetrationAt(float deg)
+        {
+            return Mathf.RoundToInt(Projectile.CalculatePenetration(deg * Mathf.Deg2Rad, velocity.Value, mass.Value, caliber.Value, apCap.IsActive, mode.Value == (int)Mode.APFSDS)); ;
+        }
+
+        private void Update()
+        {
+            if (BlockMapper.CurrentInstance)
+            {
+                int at00 = GetPenetrationAt(0);
+                int at30 = GetPenetrationAt(30); 
+                int at60 = GetPenetrationAt(60); 
+                BlockMapper.CurrentInstance.SetBlockName($"{at00} (0°), {at30} (30°), {at60} (60°)");
+            }
         }
 
         private void Caliber_ValueChanged(float value)
