@@ -10,10 +10,10 @@ namespace AdvancedCannon
     {
         public static readonly List<string> MODES = new List<string>()
         {
-            "AP", "APHE", "HE", "APFSDS"
+            "AP", "APHE", "HE", "APFSDS", "HESH", "HEAT"
         };
 
-        enum Mode { AP, APHE, HE, APFSDS };
+        enum Mode { AP, APHE, HE, APFSDS, HESH, HEAT };
 
         public MKey fire;
         public MSlider velocity;
@@ -22,6 +22,7 @@ namespace AdvancedCannon
         public MSlider spread;
         public MSlider explosiveFiller;
         public MSlider explosiveDistance;
+        public MSlider explosiveDelay;
 
         public MToggle apCap;
         public MToggle bCap;
@@ -37,13 +38,21 @@ namespace AdvancedCannon
             spread = BlockBehaviour.AddSlider("Spread", "spread", 0.5F, 0, 5, "", "°");
             explosiveFiller = BlockBehaviour.AddSlider("Explosive Filler", "explosive-filler", 0, 0, 2F, "", "kg");
             explosiveDistance = BlockBehaviour.AddSlider("Explosive Distance", "explosive-distance", 0, 0, 2F, "", "m");
+            explosiveDelay = BlockBehaviour.AddSlider("Fuse Delay", "explosive-delay", 5, 0, 100F, "", "mm");
 
             apCap = AddToggle("AP Cap", "ap-cap", false);
             bCap = AddToggle("B Cap", "b-cap", false);
             mode = AddMenu("mode", 0, MODES);
 
-            mode.ValueChanged += Mode_ValueChanged;
+            mode.ValueChanged += Mode_ValueChanged; 
             Mode_ValueChanged(0);
+
+            caliber.ValueChanged += Caliber_ValueChanged;
+        }
+
+        private void Caliber_ValueChanged(float value)
+        {
+            transform.localScale = Vector3.one * value * 0.01F * Mod.Config.ShellScale;
         }
 
         private void Mode_ValueChanged(int value)
@@ -54,27 +63,44 @@ namespace AdvancedCannon
             bCap.DisplayInMapper = true;
             explosiveFiller.DisplayInMapper = true;
             explosiveDistance.DisplayInMapper = true;
+            explosiveDelay.DisplayInMapper = true;
 
             if (projMode == Mode.AP)
             {
                 explosiveFiller.DisplayInMapper = false;
                 explosiveDistance.DisplayInMapper = false;
-            }
-
-            if (projMode == Mode.APHE)
-            {
-
+                explosiveDelay.DisplayInMapper = false;
             }
 
             if (projMode == Mode.HE)
             {
-
+                explosiveDistance.DisplayInMapper = false;
+                explosiveDelay.DisplayInMapper = false;
+                apCap.DisplayInMapper = false;
+                bCap.DisplayInMapper = false;
             }
 
             if (projMode == Mode.APFSDS)
             {
                 explosiveFiller.DisplayInMapper = false;
                 explosiveDistance.DisplayInMapper = false;
+                explosiveDelay.DisplayInMapper = false;
+                apCap.DisplayInMapper = false;
+                bCap.DisplayInMapper = false;
+            }
+
+            if (projMode == Mode.HESH)
+            {
+                explosiveDistance.DisplayInMapper = false;
+                explosiveDelay.DisplayInMapper = false;
+                apCap.DisplayInMapper = false;
+                bCap.DisplayInMapper = false;
+            }
+
+            if (projMode == Mode.HEAT)
+            {
+                explosiveDistance.DisplayInMapper = false;
+                explosiveDelay.DisplayInMapper = false;
                 apCap.DisplayInMapper = false;
                 bCap.DisplayInMapper = false;
             }
@@ -107,29 +133,44 @@ namespace AdvancedCannon
         {
             Mode projMode = (Mode)mode.Value;
 
-            Projectile projectile = Mod.SpawnProjectile(transform.position + transform.forward, Color.red);
+            Projectile projectile = Mod.SpawnProjectile(transform.position + transform.forward, Color.red, true, BlockBehaviour);
 
             projectile.body.mass = mass.Value + explosiveFiller.Value;
 
             projectile.body.velocity = Mod.RandomSpread(transform.forward * velocity.Value, spread.Value);
-            projectile.body.drag = apCap.IsActive ? Mod.Config.ArmorPiercingCapDrag : bCap.IsActive ? Mod.Config.BallisticCapDrag : Mod.Config.BaseProjectileDrag;
-            projectile.arCap = apCap.IsActive;
-            projectile.ballisticCap = bCap.IsActive;
-            projectile.highExplosive = projMode == Mode.HE;
+
+            projectile.body.drag = 
+                (0.8F + caliber.Value * 0.002F) 
+                * (bCap.IsActive ? Mod.Config.BallisticCapDrag : Mod.Config.BaseProjectileDrag);
+            
+            projectile.arCap = apCap.IsActive || projMode == Mode.APFSDS;
+            projectile.ballisticCap = bCap.IsActive || projMode == Mode.APFSDS;
+           
             projectile.timeToLive = Mod.Config.ShellTimeToLive;
+
             projectile.accurateRaycasting = true;
             projectile.shell = true;
-            projectile.fsds = projMode == Mode.APFSDS;
+
+            projectile.highExplosive = projMode == Mode.HE;
+            projectile.hesh = projMode == Mode.HESH;
+            projectile.heat = projMode == Mode.HEAT;
 
             if (projMode == Mode.APFSDS)
+            {
                 projectile.caliber = caliber.Value / 4;
+                projectile.fsds = true;
+            }
             else
                 projectile.caliber = caliber.Value;
+
+            if (projMode == Mode.HESH || projMode == Mode.HEAT)
+                projectile.explosiveFiller = explosiveFiller.Value;
 
             if (projMode == Mode.APHE || projMode == Mode.HE)
             {
                 projectile.explosiveFiller = explosiveFiller.Value;
                 projectile.explosiveDistance = explosiveDistance.Value;
+                projectile.explosiveDelay = explosiveDelay.Value;
             }
         }
     }

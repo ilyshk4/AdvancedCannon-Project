@@ -21,6 +21,7 @@ namespace AdvancedCannon
 
         public static Config Config = new Config();
         public static Material Trace;
+        public static Mesh Spalling;
 
         public const string ARMOR_THICKNESS = "armor-thickness";
         public const string ARMOR_TYPE = "armor-type";
@@ -42,11 +43,15 @@ namespace AdvancedCannon
 
         private static int _uidCounter;
 
+        private bool ConfigExists() => Modding.ModIO.ExistsFile(CONFIG_PATH);
+        private void CreateConfig() => Modding.ModIO.SerializeXml(new Config(), CONFIG_PATH);
+        private void LoadConfig() => Config = Modding.ModIO.DeserializeXml<Config>(CONFIG_PATH);
+
         public override void OnLoad()
 		{
             Events.OnBlockInit += Events_OnBlockInit;
 
-            SetupRemoteProjectile = ModNetworking.CreateMessageType(DataType.Integer, DataType.Integer, DataType.Vector3, DataType.Vector3);
+            SetupRemoteProjectile = ModNetworking.CreateMessageType(DataType.Integer, DataType.Integer, DataType.Vector3, DataType.Vector3, DataType.Block, DataType.Block);
             AddRemotePoint = ModNetworking.CreateMessageType(DataType.Integer, DataType.Integer, DataType.Vector3, DataType.Integer);
 
             ModNetworking.MessageReceived += ModNetworking_MessageReceived;
@@ -56,28 +61,31 @@ namespace AdvancedCannon
                 
             if (!ConfigExists())
                 CreateConfig();
-            try
-            {
-                LoadConfig();
-            } catch (Exception exception)
+            LoadConfig();
+            if (Config == null)
             {
                 if (ConfigExists())
+                {
+                    string previousConfig = Modding.ModIO.ReadAllText(CONFIG_PATH);
+                    Modding.ModIO.WriteAllText(CONFIG_PATH + ".broken", previousConfig);
                     Modding.ModIO.DeleteFile(CONFIG_PATH);
+                }
                 CreateConfig();
                 LoadConfig();
-            }
+            }   
 
             ArmorTypesKeys = ArmorTypes.Keys.ToList();
             ArmorTypesValues = ArmorTypes.Values.ToList();
 
             Empty = new GameObject("Empty");
 
+            Spalling = ModResource.GetMesh("SpallingMesh");
+
             Object.DontDestroyOnLoad(AdvancedCannonHelper.Instance);
             Object.DontDestroyOnLoad(Empty);
+
+            ModConsole.RegisterCommand("rsc", (x) => LoadConfig(), "Reload shells config.");
         }
-        private bool ConfigExists() => Modding.ModIO.ExistsFile(CONFIG_PATH);
-        private void CreateConfig() => Modding.ModIO.SerializeXml(new Config(), CONFIG_PATH);
-        private void LoadConfig() => Config = Modding.ModIO.DeserializeXml<Config>(CONFIG_PATH);
 
         private void Events_OnBlockInit(Block block)
         {
@@ -85,10 +93,11 @@ namespace AdvancedCannon
             {
                 BuildSurface surface = (BuildSurface)block.InternalObject;
 
-                surface.AddSlider("Armor Thickness", ARMOR_THICKNESS, 20, 0, 300, "", "mm");
+                surface.AddSlider("Armor Thickness", ARMOR_THICKNESS, 20, 5, 500, "", "mm");
                 surface.AddMenu(ARMOR_TYPE, 0, ArmorTypesKeys);
             }
         }
+
         private void ModNetworking_MessageReceived(Message msg)
         {
             if (msg.Type == SetupRemoteProjectile)
@@ -105,7 +114,8 @@ namespace AdvancedCannon
             Vector3 point = (Vector3)msg.GetData(2);
             int count = (int)msg.GetData(3);
 
-            AdvancedCannonHelper.Instance.StartCoroutine(TryAddPoint(id, uid, point, count));
+            AdvancedCannonHelper.Instance
+                .StartCoroutine(TryFor(() => RemoteAddPoint(id, uid, point, count), 1));
         }
 
         private void OnSetupRemoteProjectile(Message msg)
@@ -115,68 +125,97 @@ namespace AdvancedCannon
             Vector3 origin = (Vector3)msg.GetData(2);
             Color color = (Vector4)(Vector3)msg.GetData(3);
             color.a = 1F;
-            AdvancedCannonHelper.Instance.StartCoroutine(TrySetupProjectile(id, uid, origin, color));
+            Block cannonRef = (Block)msg.GetData(4);
+            Block surfaceRef = (Block)msg.GetData(5);
+
+            AdvancedCannonHelper.Instance
+                .StartCoroutine(TryFor(() => RemoteSetupProjectile(id, uid, origin, color, cannonRef, surfaceRef), 1));
         }
 
-        IEnumerator TryAddPoint(int id, int uid, Vector3 point, int count)
+        IEnumerator TryFor(Func<bool> func, float maxTime)
         {
-            int ticks = 0;
+            float time = 0;
 
             while (true)
             {
-                ticks += 1;
-                if (ticks >= 500)
+                time += Time.fixedDeltaTime;
+                if (time >= maxTime)
                     break;
 
-                var projectile = GetProjectile(id);
-
-                if (projectile && projectile.gameObject)
-                {
-                    RemoteProjectile remote = projectile.gameObject.GetComponent<RemoteProjectile>();
-                    if (remote && remote.line && remote.uid == uid)
-                    {
-                        int previousCount = remote.vertexCount;
-                        remote.vertexCount = Mathf.Max(remote.vertexCount, count);
-                        remote.line.SetVertexCount(remote.vertexCount);
-                        remote.line.SetPosition(count - 1, point);
-                        for (int i = previousCount; i < count; i++)
-                            remote.line.SetPosition(i, point);
-                        break;
-                    }
-                }
+                if (func())
+                    break;
 
                 yield return new WaitForFixedUpdate();
             }
         }
 
-        IEnumerator TrySetupProjectile(int id, int uid, Vector3 origin, Color lineColor)
+        bool RemoteAddPoint(int id, int uid, Vector3 point, int count)
         {
-            int ticks = 0;
+            var projectile = GetProjectile(id);
 
-            while (true)
+            if (projectile && projectile.gameObject)
             {
-                ticks += 1;
-                if (ticks >= 500)
-                    break;
-
-                var projectile = GetProjectile(id);
-
-                if (projectile)
+                RemoteProjectile remote = projectile.gameObject.GetComponent<RemoteProjectile>();
+                if (remote && remote.line && remote.uid == uid)
                 {
-                    RemoteProjectile remote = projectile.gameObject.GetComponent<RemoteProjectile>();
-                    if (remote == null)
-                        remote = projectile.gameObject.AddComponent<RemoteProjectile>();
-                    remote.uid = uid;
-                    remote.vertexCount = 1;
-                    remote.line = CreateProjectileLine();
-                    remote.line.material.color = lineColor;
+                    int previousCount = remote.vertexCount;
+                    remote.vertexCount = Mathf.Max(remote.vertexCount, count);
                     remote.line.SetVertexCount(remote.vertexCount);
-                    remote.line.SetPosition(0, origin);
-                    break;
+                    remote.line.SetPosition(count - 1, point);
+                    for (int i = previousCount; i < count; i++)
+                        remote.line.SetPosition(i, point);
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        bool RemoteSetupProjectile(int id, int uid, Vector3 origin, Color lineColor, Block cannonRef, Block surfaceRef)
+        {
+            var projectile = GetProjectile(id);
+
+            if (projectile)
+            {
+                RemoteProjectile remote = projectile.gameObject.GetComponent<RemoteProjectile>();
+                if (remote == null)
+                    remote = projectile.gameObject.AddComponent<RemoteProjectile>();
+                remote.uid = uid;
+                remote.vertexCount = 1;
+                remote.line = CreateProjectileLine();
+                remote.line.material.color = lineColor;
+                remote.line.SetVertexCount(remote.vertexCount);
+                remote.line.SetPosition(0, origin);
+
+
+                var meshRenderer = projectile.GetComponentInChildren<MeshRenderer>();
+                var meshFilter = projectile.GetComponentInChildren<MeshFilter>();
+
+                projectile.transform.localScale = Vector3.one;
+                if (cannonRef != null)
+                {
+                    projectile.transform.localScale = cannonRef.InternalObject.transform.localScale;
+                    meshRenderer.enabled = true;
+                    meshRenderer.sharedMaterial = cannonRef.InternalObject.MeshRenderer.sharedMaterial;
+                    meshFilter.sharedMesh = cannonRef.InternalObject.VisualController.MeshFilter.sharedMesh;
                 }
 
-                yield return new WaitForFixedUpdate();
+                if (surfaceRef != null)
+                {
+                    projectile.transform.localScale = Vector3.one * Random.Range(0.85F, 1.15F);
+                    meshRenderer.enabled = true;
+                    meshRenderer.sharedMaterial = surfaceRef.InternalObject.MeshRenderer.sharedMaterial;
+                    meshFilter.sharedMesh = Mod.Spalling; 
+                }
+
+                if (cannonRef == null && surfaceRef == null)
+                    meshRenderer.enabled = false;
+
+                Object.Destroy(remote.line.gameObject, Mod.Config.TrailTimeToLive);
+                return true;
             }
+
+            return false;
         }
 
         public static NetworkProjectile GetProjectile(int id)
@@ -190,7 +229,7 @@ namespace AdvancedCannon
             return null;
         }
 
-        public static Projectile SpawnProjectile(Vector3 position, Color lineColor, bool visible = true)
+        public static Projectile SpawnProjectile(Vector3 position, Color lineColor, bool visible = true, BlockBehaviour cannonRef = null, BlockBehaviour surfaceRef = null)
         {
             Transform cannonball;
             if (ProjectileManager.Instance)
@@ -201,12 +240,15 @@ namespace AdvancedCannon
                 num += 6;
                 NetworkCompression.CompressRotation(Quaternion.identity, array, num);
                 NetworkAddPiece instance = NetworkAddPiece.Instance;
-                Transform transform = ProjectileManager.Instance.Spawn(NetworkProjectileType.Cannon, instance.frame, Machine.Active().PlayerID, array);
+                Transform transform = ProjectileManager.Instance
+                    .Spawn(NetworkProjectileType.Cannon, instance.frame, Machine.Active().PlayerID, array);
                 cannonball = transform;
             }
             else
             {
-                cannonball = GamePrefabs.InstantiateProjectile(GamePrefabs.ProjectileType.CannonBall, position, Quaternion.identity, ReferenceMaster.physicsGoalInstance).transform;
+                cannonball = GamePrefabs.InstantiateProjectile(
+                    GamePrefabs.ProjectileType.CannonBall, position, Quaternion.identity, ReferenceMaster.physicsGoalInstance
+                    ).transform;
             }
 
             Projectile oldProjectile = cannonball.GetComponent<Projectile>();
@@ -217,6 +259,7 @@ namespace AdvancedCannon
             if (collider != null)
                 collider.isTrigger = true;
 
+            MeshFilter meshFilter = cannonball.GetComponentInChildren<MeshFilter>();
             MeshRenderer meshRenderer = cannonball.GetComponentInChildren<MeshRenderer>();
             meshRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             meshRenderer.receiveShadows = false;
@@ -241,9 +284,23 @@ namespace AdvancedCannon
 
             projectile.uid = _uidCounter++;
 
+            if (cannonRef != null)
+            {
+                projectile.transform.localScale = cannonRef.transform.localScale;
+                meshRenderer.sharedMaterial = cannonRef.MeshRenderer.sharedMaterial;
+                meshFilter.sharedMesh = cannonRef.VisualController.MeshFilter.sharedMesh;
+            }
+
+            if (surfaceRef != null)
+            {
+                projectile.transform.localScale = Vector3.one * Random.Range(0.85F, 1.15F);
+                meshRenderer.sharedMaterial = surfaceRef.MeshRenderer.sharedMaterial;
+                meshFilter.sharedMesh = Mod.Spalling;
+            }
+
             if (ProjectileManager.Instance)
             {
-                ModNetworking.SendToAll(SetupRemoteProjectile.CreateMessage((int)network.id, projectile.uid, position, (Vector3)(Vector4)lineColor));
+                ModNetworking.SendToAll(SetupRemoteProjectile.CreateMessage((int)network.id, projectile.uid, position, (Vector3)(Vector4)lineColor, cannonRef, surfaceRef));
             }
 
             return projectile;

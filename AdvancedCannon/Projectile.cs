@@ -10,7 +10,7 @@ namespace AdvancedCannon
         public static int HitMask = Game.BlockEntityLayerMask | 1 << 29;
 
         const float MAX_DISTANCE = 4;
-        const float OFFSET = 0.1F;
+        const float OFFSET = 0.15F;
 
         public LineRenderer line;
         public Rigidbody body;
@@ -25,14 +25,20 @@ namespace AdvancedCannon
         public bool shell;
         public bool particle;
         public bool highExplosive;
+        public bool hesh;
+        public bool heat;
+        public bool fsds;
+        public bool dontRicochet;
         public float timeToLive;
         public float explosiveFiller;
         public float explosiveDistance;
-        public bool fsds;
+        public float explosiveDelay;
 
         private Vector3 _lastPosition;
         private int _vertexCount;
         private bool _exploded;
+        private float _explodeDistance;
+        private bool _shouldExplode;
 
         private void Awake()
         {
@@ -41,6 +47,8 @@ namespace AdvancedCannon
 
         private void FixedUpdate()
         {
+            transform.rotation = Quaternion.LookRotation(body.velocity);
+
             timeToLive -= Time.fixedDeltaTime;
 
             if (body.velocity.magnitude < Mod.Config.MinProjectileVelocity 
@@ -51,8 +59,16 @@ namespace AdvancedCannon
                 return;
             }
 
-            if (_lastPosition != transform.position)
+            float oldExplodeDistance = _explodeDistance;
+            _explodeDistance -= Vector3.Distance(_lastPosition, transform.position);
+            if (_shouldExplode && _explodeDistance <= 0)
             {
+                Vector3 position = _lastPosition + (transform.position - _lastPosition).normalized * oldExplodeDistance;
+                SpawnExplosion(position, Mod.Config.BaseExplosionConeAngle, explosiveDistance);
+            }
+
+            if (_lastPosition != transform.position)
+            {   
                 Vector3 direction = transform.position - _lastPosition;
 
                 if (Raycast(_lastPosition, direction.normalized, direction.magnitude, HitMask, out RaycastHit hit, out BuildSurface surface, out bool hitSide))
@@ -99,6 +115,9 @@ namespace AdvancedCannon
 
                             float amplifiedAngle = arCap ? Mathf.Max(angle - Random.Range(0, Mod.Config.ArmorPiercingCapAngleReduce), 0) : angle;
 
+                            if (fsds)
+                                amplifiedAngle = Mathf.Max(0, amplifiedAngle - Mod.Config.FSDS_AngleReduce);
+
                             float penetration =
                                 Mathf.Pow(relativeVelocity / 2200, 1.43F)
                                 * (Mathf.Pow(body.mass, 0.71F) / Mathf.Pow(caliber / 100, 1.07F))
@@ -111,9 +130,8 @@ namespace AdvancedCannon
 
                             float penetrationPower = thickness / penetration;
                             float fragmentsCone = Mod.Config.BaseFragmentsConeAngle * penetrationPower;
-                            float explosionCone = Mod.Config.BaseExplosionConeAngle * penetrationPower;
 
-                            if (particle || highExplosive)
+                            if (particle || highExplosive || hesh || heat)
                                 penetration = 0;
 
                             if (penetration > thickness)
@@ -128,39 +146,65 @@ namespace AdvancedCannon
                                 
                                 if (shell)
                                 {
+                                    float powerPerArea = (body.velocity.magnitude * body.velocity.magnitude * body.mass) / (caliber * caliber);
+
                                     float originalShellSpeed = body.velocity.magnitude;
-                                    int fragmentsCount = Mod.Config.SpallingFragmentsCount;
+                                    int fragmentsCount = Mathf.CeilToInt(powerPerArea * 0.01F * Mod.Config.SpallingFragmentsFactor);
+                                    fragmentsCount = Mathf.Clamp(fragmentsCount, 0, 25);
+                                    fragmentsCone *= powerPerArea * 0.0015F * Mod.Config.SpallingConeFactor;
 
-                                    if (fsds)
-                                    {
-                                        fragmentsCount = Mathf.FloorToInt(Mod.Config.FSDS_SpallingCaliberScale * caliber * 4);
-                                        fragmentsCone *= Mod.Config.FSDS_ConeScale;
-                                    }
-
-                                    float fragmentsTotalMass = 0.1F;
+                                    float fragmentsTotalMass = 0.033F * surface.currentType.density;
                                     float fragmentMass = fragmentsTotalMass / fragmentsCount;
 
-                                    SpawnFragments(fragmentsCount, fragmentsCone, fragmentMass);
+                                    SpawnFragments(body.position, body.velocity, fragmentsCount, fragmentsCone, fragmentMass, true, surface);
 
                                     body.mass *= 1F - Mod.Config.PenetrationMassLoose;
                                     body.velocity = direction.normalized * originalShellSpeed * (1F - penetrationPower);
+                                }
 
-                                    SpawnExplosion(explosionCone, explosiveDistance);
+                                if (explosiveFiller != 0 && thickness >= explosiveDelay)
+                                {
+                                    _shouldExplode = true;
+                                    _explodeDistance = explosiveDistance;
                                 }
                             }
                             else
                             {
+                                if (heat)
+                                {
+                                    SpawnFragments(start - direction.normalized * 0.25F, body.velocity.normalized * Mod.Config.HEAT_VelocityPerKilo * explosiveFiller, 10, 1, 0.1F, false, null);
+                                    SpawnFragments(start - direction.normalized * 0.25F, body.velocity.normalized * Mod.Config.HEAT_VelocityPerKilo * explosiveFiller * 0.5F, 10, 30, 0.1F, false, null);
+                                }
+
                                 Ricochet(ref direction, enter, normal, angle);
 
                                 if (highExplosive)
                                 {
                                     SpawnHighExplosion();
                                 }
+                                    
+                                if (!fragment && !highExplosive && !hesh && !heat) // Replace to explosive;
+                                    SpawnExplosion(enter, Mod.Config.BaseExplosionConeAngle, 0);
 
-                                if (!fragment && !highExplosive)
-                                    SpawnExplosion(explosionCone, 0);
+                                if (hesh)
+                                {
+                                    if (collider.Raycast(new Ray(hit.point - hit.normal * MAX_DISTANCE, hit.normal), out RaycastHit hashHit, MAX_DISTANCE))
+                                    {
+                                        float flatThickness = Mod.GetSurfaceThickness(surface, 0);
+                                        float heshPenetration = Mod.Config.HESH_PenetrationPerKilo * explosiveFiller;
+                                        float heshPenetrationPower = flatThickness / heshPenetration;
 
-                                if (highExplosive || body.velocity.magnitude < Mod.Config.MinProjectileVelocity)
+                                        if (flatThickness < heshPenetration)
+                                        {
+                                            int fragmentsCount = Mathf.CeilToInt(Mod.Config.HESH_BaseSpallingCount * (1F - heshPenetrationPower));
+                                            float heshAngle = Mod.Config.HESH_BaseConeAngle * (1F - heshPenetrationPower);
+
+                                            SpawnFragments(hashHit.point - hit.normal * OFFSET, -hit.normal * 500, fragmentsCount, heshAngle, 0.1F, true, surface);
+                                        }
+                                    }
+                                }
+
+                                if (heat || hesh || highExplosive || body.velocity.magnitude < Mod.Config.MinProjectileVelocity)
                                 {
                                     AddPoint(transform.position);
                                     Stop();
@@ -182,43 +226,44 @@ namespace AdvancedCannon
                     }
                 }
             }
+
             _lastPosition = transform.position;
             AddPoint(transform.position);
-        }
+        }   
 
         private void SpawnHighExplosion()
         {
             int count = Mathf.CeilToInt(Mod.Config.HighExplosiveFragmentsCountPerKilo * explosiveFiller);
             for (int i = 0; i < count; i++)
             {
-                Projectile fragment = Mod.SpawnProjectile(transform.position, Color.yellow);
+                Projectile fragment = Mod.SpawnProjectile(transform.position, Color.yellow, false);
                 Vector3 fragmentDirection = Mod.RandomSpread(body.velocity.normalized, 180);
                 fragment.body.mass = 0.05F;
-                fragment.body.velocity = fragmentDirection * (Mod.Config.HighExplosiveFragmentBaseVelocity + explosiveFiller * Mod.Config.HighExplosiveFragmentVelocityPerKilo);
+                fragment.body.velocity = fragmentDirection * (150 + explosiveFiller * 2500);
                 fragment.fragment = true;
                 fragment.caliber = 10;
                 fragment.timeToLive = Mod.Config.HighExplosiveFragmentTimeToLive;
             }
         }
 
-        private void SpawnFragments(int count, float cone, float mass)
+        private void SpawnFragments(Vector3 position, Vector3 velocity, int count, float cone, float mass, bool bounce, BuildSurface surface)
         {
             cone = Mathf.Clamp(cone, 0, 180);
             for (int i = 0; i < count; i++)
             {
-                Projectile fragment = Mod.SpawnProjectile(transform.position, Color.yellow);
-                Vector3 fragmentDirection = Mod.RandomSpread(body.velocity, cone);
-                float angleSpeedModifier = Mathf.Pow(Mathf.Clamp01(1F - Vector3.Angle(body.velocity, fragmentDirection) / cone) * 0.5F, 2);
-
+                Projectile fragment = Mod.SpawnProjectile(position, Color.yellow, surface, null, surface);
+                Vector3 fragmentDirection = Mod.RandomSpread(velocity, cone);
+                float angleSpeedModifier = Mathf.Pow(Mathf.Clamp01(1F - Vector3.Angle(velocity, fragmentDirection) / cone), 2);
                 fragment.body.mass = mass;
-                fragment.body.velocity = fragmentDirection.normalized * Mathf.Max(fragmentDirection.magnitude * angleSpeedModifier, 150F, 1000F);
+                fragment.body.velocity = fragmentDirection.normalized * Mathf.Max(fragmentDirection.magnitude * angleSpeedModifier, 150);
+                fragment.dontRicochet = !bounce;
                 fragment.fragment = true;
                 fragment.caliber = 10;
                 fragment.timeToLive = Mod.Config.SpallingFragmentTimeToLive;
             }
         }
 
-        private void SpawnExplosion(float cone, float distance)
+        private void SpawnExplosion(Vector3 position, float cone, float distance)
         {
             if (_exploded)
                 return;
@@ -228,9 +273,9 @@ namespace AdvancedCannon
 
             int explosiveFragmentsCount = Mathf.FloorToInt((float)Mod.Config.ExplosiveParticlesCountPerKilo * explosiveFiller);
 
-            Vector3 position = transform.position + body.velocity.normalized * distance;
-            if (Physics.Raycast(transform.position, body.velocity.normalized, out RaycastHit explHit, distance, HitMask, QueryTriggerInteraction.Ignore))
-                position = explHit.point - body.velocity.normalized * 0.3F;
+            //Vector3 position = transform.position + body.velocity.normalized * distance;
+            //if (Physics.Raycast(transform.position, body.velocity.normalized, out RaycastHit explHit, distance, HitMask, QueryTriggerInteraction.Ignore))
+            //    position = explHit.point - body.velocity.normalized * 0.3F;
 
             for (int i = 0; i < explosiveFragmentsCount; i++)
             {
@@ -257,8 +302,7 @@ namespace AdvancedCannon
 
         private bool Raycast(Vector3 position, Vector3 direction, float magnitude, int hitLayerMask, out RaycastHit hit, out BuildSurface surface, out bool hitSide)
         {
-            // Check for explosive;
-            Vector3 length = direction.normalized * Mathf.Max(caliber / 200, 0.1F);
+            Vector3 length = direction.normalized * Mathf.Max(caliber * Mod.Config.ShellScale / 200, 0.1F);
             hit = default;
             surface = null;
             hitSide = false;
@@ -308,11 +352,15 @@ namespace AdvancedCannon
             direction = Vector3.Reflect(direction, normal); 
             body.velocity = direction.normalized * body.velocity.magnitude 
                 * (particle ? 1 : Mathf.Pow(Mathf.Sin(angle), Mod.Config.RicochetVelocityDecreasePower));
+
+            if (dontRicochet || 
+                (fsds && angle < 75))
+                body.velocity = Vector3.zero;
         }
 
         private void OnDestroy()
         {
-            if (line) Destroy(line.gameObject, 1);
+            if (line) Destroy(line.gameObject, Mod.Config.TrailTimeToLive);
         }
          
         private void Stop()
@@ -332,17 +380,14 @@ namespace AdvancedCannon
                 Destroy(gameObject);
             }
 
-            if (line) Destroy(line.gameObject, 1);
+            if (line) Destroy(line.gameObject, Mod.Config.TrailTimeToLive);
         }
 
         public void AddPoint(Vector3 vector)
         {
-            if (line == null)
+            if (line == null || vector == Vector3.zero || OutOfBounds(vector))
                 return;
-            if (vector == Vector3.zero)
-                return;
-            if (OutOfBounds(vector))
-                return;
+
             line.SetVertexCount(_vertexCount + 1);
             line.SetPosition(_vertexCount++, vector);
 

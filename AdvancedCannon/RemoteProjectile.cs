@@ -12,25 +12,15 @@ namespace AdvancedCannon
     {
         public int uid;
         public int vertexCount;
-        public Vector3[] positions;
         public LineRenderer line;
 
-        private void OnEnable()
-        {
-            StartCoroutine(Stop());
-        }
+        private Vector3 _lastPosition;
 
-        private IEnumerator Stop()
+        private void FixedUpdate()
         {
-            yield return new WaitForSeconds(2F);
-            gameObject.SetActive(false);
-        }
-
-        private void OnDisable()
-        {
-            StopAllCoroutines();
-            if (line)
-                Destroy(line.gameObject, 1F);
+            Vector3 direction = _lastPosition - transform.position;
+            transform.rotation = Quaternion.LookRotation(direction);
+            _lastPosition = transform.position;
         }
     }
 }
