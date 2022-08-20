@@ -58,24 +58,24 @@ namespace AdvancedCannon
 
         private float GetDefaultPenetration(float angle)
         {
-            return Mathf.RoundToInt(Projectile.CalculatePenetration(angle * Mathf.Deg2Rad, 
+            return Mathf.RoundToInt(ServerProjectile.CalculatePenetration(angle * Mathf.Deg2Rad, 
                 velocity.Value, mass.Value + explosiveFiller.Value, caliber.Value, apCap.IsActive, false, Mod.Config.Shells.AP.ArmorResistanceFactor));
         }
 
         private float GetAPFSDSPenetration(float angle)
         {
-            return Mathf.RoundToInt(Projectile.CalculatePenetration(angle * Mathf.Deg2Rad, 
+            return Mathf.RoundToInt(ServerProjectile.CalculatePenetration(angle * Mathf.Deg2Rad, 
                 velocity.Value, mass.Value + explosiveFiller.Value, caliber.Value * Mod.Config.Shells.APFSDS.CaliberScale, true, true));
         }
         private float GetHEPenetration(float angle)
         {
-            return Mathf.RoundToInt(Projectile.CalculatePenetration(angle * Mathf.Deg2Rad, 
+            return Mathf.RoundToInt(ServerProjectile.CalculatePenetration(angle * Mathf.Deg2Rad, 
                 Mod.Config.Shells.HE.BaseVelocity + explosiveFiller.Value * Mod.Config.Shells.HE.VelocityPerKilo, 
                 Mod.Config.Shells.HE.FragmentMass, Mod.Config.Shells.HE.FragmentCaliber, false, false));
         }
         private float GetHEATPenetration(float angle)
         {   
-            return Mathf.RoundToInt(Projectile.CalculatePenetration(angle * Mathf.Deg2Rad, 
+            return Mathf.RoundToInt(ServerProjectile.CalculatePenetration(angle * Mathf.Deg2Rad, 
                 Mod.Config.Shells.HEAT.VelocityPerKilo * explosiveFiller.Value, Mod.Config.Shells.HEAT.FragmentMass, 10, false, false));
         }
 
@@ -199,7 +199,7 @@ namespace AdvancedCannon
         {
             Mode projMode = (Mode)mode.Value;
 
-            Projectile projectile = Mod.SpawnProjectile(transform.position + transform.forward, Color.red, true, BlockBehaviour);
+            ServerProjectile projectile = Mod.SpawnProjectile(transform.position + transform.forward, Color.red, true, BlockBehaviour);
 
             projectile.body.mass = mass.Value + explosiveFiller.Value;
 

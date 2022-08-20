@@ -12,21 +12,6 @@ using Vector3 = UnityEngine.Vector3;
 
 namespace AdvancedCannon
 {
-    // Proxifimity fuse
-    // reactive armor
-
-    public struct ShellAssets
-    {
-        public Mesh mesh;
-        public Texture2D texture;
-
-        public ShellAssets(string prefix)
-        {
-            mesh = ModResource.GetMesh($"{prefix}_Mesh");
-            texture = ModResource.GetTexture($"{prefix}_Texture");
-        }
-    }
-
     public class Mod : ModEntryPoint
     {
         public static MessageType SetupRemoteProjectile;
@@ -109,7 +94,7 @@ namespace AdvancedCannon
             HESH = new ShellAssets("HESH");
             HEAT = new ShellAssets("HEAT");
 
-            Object.DontDestroyOnLoad(AdvancedCannonHelper.Instance);
+            Object.DontDestroyOnLoad(Helper.Instance);
             Object.DontDestroyOnLoad(Empty);
 
             ModConsole.RegisterCommand("rsc", (x) => LoadConfig(), "Reload shells config.");
@@ -178,7 +163,7 @@ namespace AdvancedCannon
             Vector3 point = (Vector3)msg.GetData(2);
             int count = (int)msg.GetData(3);
 
-            AdvancedCannonHelper.Instance
+            Helper.Instance
                 .StartCoroutine(TryFor(() => RemoteAddPoint(id, uid, point, count), 1));
         }
 
@@ -192,7 +177,7 @@ namespace AdvancedCannon
             Block cannonRef = (Block)msg.GetData(4);
             Block surfaceRef = (Block)msg.GetData(5);
 
-            AdvancedCannonHelper.Instance
+            Helper.Instance
                 .StartCoroutine(TryFor(() => RemoteSetupProjectile(id, uid, origin, color, cannonRef, surfaceRef), 1));
         }
 
@@ -294,7 +279,7 @@ namespace AdvancedCannon
             return null;
         }
 
-        public static Projectile SpawnProjectile(Vector3 position, Color lineColor, bool visible = true, BlockBehaviour cannonRef = null, BlockBehaviour surfaceRef = null)
+        public static ServerProjectile SpawnProjectile(Vector3 position, Color lineColor, bool visible = true, BlockBehaviour cannonRef = null, BlockBehaviour surfaceRef = null)
         {
             Transform cannonball;
             if (ProjectileManager.Instance)
@@ -316,7 +301,7 @@ namespace AdvancedCannon
                     ).transform;
             }
 
-            Projectile oldProjectile = cannonball.GetComponent<Projectile>();
+            ServerProjectile oldProjectile = cannonball.GetComponent<ServerProjectile>();
             if (oldProjectile)
                 Object.Destroy(oldProjectile);
 
@@ -341,7 +326,7 @@ namespace AdvancedCannon
 
             NetworkCannonball network = obj.GetComponent<NetworkCannonball>();
 
-            Projectile projectile = obj.AddComponent<Projectile>();
+            ServerProjectile projectile = obj.AddComponent<ServerProjectile>();
             projectile.body = rigidbody;
             projectile.line = line;
             projectile.network = network;

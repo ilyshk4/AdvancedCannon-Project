@@ -46,14 +46,16 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="AdvancedCannonHelper.cs" />
+    <Compile Include="Helper.cs" />
     <Compile Include="Cannon.cs" />
     <Compile Include="Config.cs" />
     <Compile Include="Mod.cs" />
+    <Compile Include="Networking.cs" />
     <Compile Include="NuclearExplosionEffect.cs" />
-    <Compile Include="Projectile.cs" />
+    <Compile Include="ServerProjectile.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="RemoteProjectile.cs" />
+    <Compile Include="ShellAssets.cs" />
     <Compile Include="Warhead.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

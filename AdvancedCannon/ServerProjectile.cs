@@ -5,7 +5,7 @@ using Random = UnityEngine.Random;
 
 namespace AdvancedCannon
 {
-    public class Projectile : MonoBehaviour
+    public class ServerProjectile : MonoBehaviour
     {
         public static int HitMask = Game.BlockEntityLayerMask | 1 << 29;
 
@@ -240,14 +240,14 @@ namespace AdvancedCannon
                     int fragmentsCount = Mathf.CeilToInt(Mod.Config.Shells.HESH.BaseSpallingCount * (1F - heshPenetrationPower));
                     float heshAngle = Mod.Config.Shells.HESH.BaseConeAngle * (1F - heshPenetrationPower);
 
-                    SpawnFragments(hashHit.point - normal * OFFSET, -normal * 500, fragmentsCount, heshAngle, 0.1F, true, surface, Color.yellow);
+                    SpawnFragments(hashHit.point - normal * OFFSET, -normal * 500, fragmentsCount, heshAngle, 0.1F, true, surface, Color.yellow, Mod.Config.Spalling.TimeToLive);
                 }
             }
         }
 
         public static void SpawnHeatExplosion(Vector3 position, Vector3 velocity, float explosiveFiller)
         {
-            SpawnFragments(position, velocity.normalized * Mod.Config.Shells.HEAT.VelocityPerKilo * explosiveFiller, 10, 1, Mod.Config.Shells.HEAT.FragmentMass, false, null, Color.white);
+            SpawnFragments(position, velocity.normalized * Mod.Config.Shells.HEAT.VelocityPerKilo * explosiveFiller, 10, 1, Mod.Config.Shells.HEAT.FragmentMass, false, null, Color.white, Mod.Config.Spalling.TimeToLive);
         }
 
         public static float CalculatePenetration(float angle, float velocity, float mass, float caliber, bool arCap, bool fsds, float velocityDivider = 2200)
@@ -272,7 +272,7 @@ namespace AdvancedCannon
             int count = Mod.Config.Shells.HE.MinFragmentsCount + Mathf.CeilToInt(Mod.Config.Shells.HE.FragmentsCountPerKilo * power);
             for (int i = 0; i < count; i++)
             {
-                Projectile fragment = Mod.SpawnProjectile(position, Color.yellow, false);
+                ServerProjectile fragment = Mod.SpawnProjectile(position, Color.yellow, false);
                 Vector3 fragmentDirection = Mod.RandomSpread(direction.normalized, 180);
                 fragment.body.mass = Mod.Config.Shells.HE.FragmentMass;
                 fragment.body.velocity = fragmentDirection * (Mod.Config.Shells.HE.BaseVelocity + power * Mod.Config.Shells.HE.VelocityPerKilo);
@@ -287,7 +287,7 @@ namespace AdvancedCannon
             cone = Mathf.Clamp(cone, 0, 180);
             for (int i = 0; i < count; i++)
             {
-                Projectile fragment = Mod.SpawnProjectile(position, color, surface, null, surface);
+                ServerProjectile fragment = Mod.SpawnProjectile(position, color, surface, null, surface);
                 Vector3 fragmentDirection = Mod.RandomSpread(velocity, cone);
                 float angleSpeedModifier = Mathf.Pow(Mathf.Clamp01(1F - Vector3.Angle(velocity, fragmentDirection) / cone), 2);
                 fragment.body.mass = mass;
@@ -315,7 +315,7 @@ namespace AdvancedCannon
 
             for (int i = 0; i < explosiveFragmentsCount; i++)
             {
-                Projectile fragment = Mod.SpawnProjectile(position, Color.white, false);
+                ServerProjectile fragment = Mod.SpawnProjectile(position, Color.white, false);
                 Vector3 direction = Mod.RandomSpread(body.velocity.normalized * 1000, cone);
 
                 fragment.body.mass = 0.1F;

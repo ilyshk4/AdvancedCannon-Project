@@ -6,9 +6,9 @@ using UnityEngine;
 
 namespace AdvancedCannon
 {
-    public class AdvancedCannonHelper : SingleInstance<AdvancedCannonHelper>
+    public class Helper : SingleInstance<Helper>
     {
-        public override string Name => "AC Helper";
+        public override string Name => "AC Mod Helper";
 
         private Camera _camera;
 
@@ -49,7 +49,7 @@ namespace AdvancedCannon
                 {
                     Ray ray = _camera.ScreenPointToRay(Input.mousePosition);
 
-                    if (Physics.Raycast(ray, out RaycastHit enterHit, 100, Projectile.HitMask, QueryTriggerInteraction.Ignore))
+                    if (Physics.Raycast(ray, out RaycastHit enterHit, 100, ServerProjectile.HitMask, QueryTriggerInteraction.Ignore))
                     {
                         if (enterHit.collider &&
                             enterHit.collider.Raycast(new Ray(enterHit.point + ray.direction * 10, -ray.direction), out RaycastHit exitHit, 10))

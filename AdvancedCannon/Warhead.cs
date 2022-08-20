@@ -64,20 +64,20 @@ namespace AdvancedCannon
             GetComponentInChildren<SphereCollider>().isTrigger = true;
             Vector3 center = transform.position + transform.forward * 0.5F;
             if (mode.Value == (int)Mode.HE)
-                Projectile.SpawnHighExplosion(center, transform.forward, explosiveFiller.Value);
+                ServerProjectile.SpawnHighExplosion(center, transform.forward, explosiveFiller.Value);
             if (mode.Value == (int)Mode.HEAT)
-                Projectile.SpawnHeatExplosion(center, transform.forward, explosiveFiller.Value);
+                ServerProjectile.SpawnHeatExplosion(center, transform.forward, explosiveFiller.Value);
             if (mode.Value == (int)Mode.HESH)
             {
                 if (collision == null)
-                    Projectile.SpawnHighExplosion(center, transform.forward, explosiveFiller.Value);
+                    ServerProjectile.SpawnHighExplosion(center, transform.forward, explosiveFiller.Value);
                 else
                 {
                     Vector3 point = collision.contacts[0].point;
                     Vector3 normal = collision.contacts[0].normal;
                     Vector3 enter = point + normal * 0.1F;
                     BuildSurface surface = collision.collider.attachedRigidbody?.GetComponent<BuildSurface>();
-                    Projectile.HeshPenetration(collision.collider, enter, normal, surface, explosiveFiller.Value);
+                    ServerProjectile.HeshPenetration(collision.collider, enter, normal, surface, explosiveFiller.Value);
                 }
             }
             if (mode.Value == (int)Mode.Nuclear)
