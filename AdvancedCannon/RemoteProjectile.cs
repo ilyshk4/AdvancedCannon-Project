@@ -5,7 +5,6 @@ using System.Linq;
 using System.Text;
 using UnityEngine;
 
-
 namespace AdvancedCannon
 {
     public class RemoteProjectile : MonoBehaviour
@@ -18,7 +17,7 @@ namespace AdvancedCannon
 
         private void FixedUpdate()
         {
-            Vector3 direction = _lastPosition - transform.position;
+            Vector3 direction = transform.position - _lastPosition;
             transform.rotation = Quaternion.LookRotation(direction);
             _lastPosition = transform.position;
         }

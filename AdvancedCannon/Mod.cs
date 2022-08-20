@@ -12,16 +12,36 @@ using Vector3 = UnityEngine.Vector3;
 
 namespace AdvancedCannon
 {
+    // Proxifimity fuse
+    // reactive armor
+
+    public struct ShellAssets
+    {
+        public Mesh mesh;
+        public Texture2D texture;
+
+        public ShellAssets(string prefix)
+        {
+            mesh = ModResource.GetMesh($"{prefix}_Mesh");
+            texture = ModResource.GetTexture($"{prefix}_Texture");
+        }
+    }
+
     public class Mod : ModEntryPoint
     {
         public static MessageType SetupRemoteProjectile;
         public static MessageType AddRemotePoint;
+        public static MessageType SpawnNuclearExplosionEffect;
 
         public static readonly string CONFIG_PATH = "Config.xml";
 
         public static Config Config = new Config();
+
         public static Material Trace;
         public static Mesh Spalling;
+        public static AudioClip SuperBigExplosion;
+
+        public static ShellAssets AP, APHE, HE, APFSDS, HESH, HEAT;
 
         public const string ARMOR_THICKNESS = "armor-thickness";
         public const string ARMOR_TYPE = "armor-type";
@@ -53,6 +73,7 @@ namespace AdvancedCannon
 
             SetupRemoteProjectile = ModNetworking.CreateMessageType(DataType.Integer, DataType.Integer, DataType.Vector3, DataType.Vector3, DataType.Block, DataType.Block);
             AddRemotePoint = ModNetworking.CreateMessageType(DataType.Integer, DataType.Integer, DataType.Vector3, DataType.Integer);
+            SpawnNuclearExplosionEffect = ModNetworking.CreateMessageType(DataType.Vector3);
 
             ModNetworking.MessageReceived += ModNetworking_MessageReceived;
 
@@ -78,8 +99,15 @@ namespace AdvancedCannon
             ArmorTypesValues = ArmorTypes.Values.ToList();
 
             Empty = new GameObject("Empty");
-
             Spalling = ModResource.GetMesh("SpallingMesh");
+            SuperBigExplosion = ModResource.GetAudioClip("SuperBigExplosion");
+
+            AP = new ShellAssets("AP");
+            HE = new ShellAssets("HE");
+            APHE = new ShellAssets("APHE");
+            APFSDS = new ShellAssets("APFSDS");
+            HESH = new ShellAssets("HESH");
+            HEAT = new ShellAssets("HEAT");
 
             Object.DontDestroyOnLoad(AdvancedCannonHelper.Instance);
             Object.DontDestroyOnLoad(Empty);
@@ -93,9 +121,36 @@ namespace AdvancedCannon
             {
                 BuildSurface surface = (BuildSurface)block.InternalObject;
 
-                surface.AddSlider("Armor Thickness", ARMOR_THICKNESS, 20, 5, 500, "", "mm");
-                surface.AddMenu(ARMOR_TYPE, 0, ArmorTypesKeys);
+                MSlider thicknessSlider = surface.AddSlider("Armor Thickness", ARMOR_THICKNESS, 20, 5, 500, "", "mm");
+                MMenu armorType = surface.AddMenu(ARMOR_TYPE, 0, ArmorTypesKeys);
+
+                if (block.SimBlock != null)
+                {
+                    block.SimBlock.InternalObject.StartCoroutine(InitSurfaceBody(block));
+                }
             }
+        }
+
+        IEnumerator InitSurfaceBody(Block block)
+        {
+            yield return new WaitForFixedUpdate();
+
+            BuildSurface surface = (BuildSurface)block.InternalObject;
+            GetSurfaceArmor(surface, out float thickness, out int armorType);
+            float density = ArmorTypesValues[armorType];
+
+            foreach (var i in block.SimBlock.InternalObject.transform.GetComponentsInChildren<ConfigurableJoint>())
+                i.breakForce = i.breakTorque = float.PositiveInfinity;
+            
+
+            if (block.SimBlock.InternalObject.BlockHealth)
+                block.SimBlock.InternalObject.BlockHealth.health = float.PositiveInfinity;
+
+            float size = 0;
+            foreach (var collider in block.SimBlock.InternalObject.GetComponentsInChildren<BoxCollider>())
+                size += collider.size.x * collider.size.y * collider.size.z;
+
+            block.SimBlock.InternalObject.Rigidbody.mass = size * thickness * Mod.Config.Surface.BaseDensity * density;
         }
 
         private void ModNetworking_MessageReceived(Message msg)
@@ -105,6 +160,15 @@ namespace AdvancedCannon
 
             if (msg.Type == AddRemotePoint)
                 OnAddRemotePoint(msg);
+
+            if (msg.Type == SpawnNuclearExplosionEffect)
+                OnSpawnNuclearExplosion(msg);
+        }
+
+        private void OnSpawnNuclearExplosion(Message msg)
+        {
+            Vector3 point = (Vector3)msg.GetData(0);
+            Warhead.SpawnNuclearExplosionEffect(point);
         }
 
         private void OnAddRemotePoint(Message msg)
@@ -134,18 +198,19 @@ namespace AdvancedCannon
 
         IEnumerator TryFor(Func<bool> func, float maxTime)
         {
+            const float step = 0.1F;
             float time = 0;
 
             while (true)
             {
-                time += Time.fixedDeltaTime;
+                time += step;
                 if (time >= maxTime)
                     break;
 
                 if (func())
                     break;
 
-                yield return new WaitForFixedUpdate();
+                yield return new WaitForSecondsRealtime(step);
             }
         }
 
@@ -196,7 +261,7 @@ namespace AdvancedCannon
                 {
                     projectile.transform.localScale = cannonRef.InternalObject.transform.localScale;
                     meshRenderer.enabled = true;
-                    meshRenderer.sharedMaterial = cannonRef.InternalObject.MeshRenderer.sharedMaterial;
+                    meshRenderer.material = cannonRef.InternalObject.MeshRenderer.material;
                     meshFilter.sharedMesh = cannonRef.InternalObject.VisualController.MeshFilter.sharedMesh;
                 }
 
@@ -211,7 +276,7 @@ namespace AdvancedCannon
                 if (cannonRef == null && surfaceRef == null)
                     meshRenderer.enabled = false;
 
-                Object.Destroy(remote.line.gameObject, Mod.Config.TrailTimeToLive);
+                Object.Destroy(remote.line.gameObject, Mod.Config.Trace.TimeToLive);
                 return true;
             }
 
@@ -284,10 +349,11 @@ namespace AdvancedCannon
 
             projectile.uid = _uidCounter++;
 
+            projectile.transform.localScale = Vector3.one;
             if (cannonRef != null)
             {
                 projectile.transform.localScale = cannonRef.transform.localScale;
-                meshRenderer.sharedMaterial = cannonRef.MeshRenderer.sharedMaterial;
+                meshRenderer.material = cannonRef.MeshRenderer.material;
                 meshFilter.sharedMesh = cannonRef.VisualController.MeshFilter.sharedMesh;
             }
 
@@ -346,9 +412,8 @@ namespace AdvancedCannon
         {
             Vector2 offset = Random.insideUnitCircle;
 
-            return Quaternion.AngleAxis(offset.x * Random.Range(-spread, spread), Vector3.right)
-                * Quaternion.AngleAxis(offset.y * Random.Range(-spread, spread), Vector3.up)
-                * direction;
+            return Quaternion.LookRotation(direction) * (Quaternion.AngleAxis(offset.x * spread, Vector3.right)
+                * Quaternion.AngleAxis(offset.y * spread, Vector3.up)) * Vector3.forward * direction.magnitude;
         }
     }
 }

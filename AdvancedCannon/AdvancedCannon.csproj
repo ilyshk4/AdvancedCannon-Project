@@ -50,9 +50,11 @@
     <Compile Include="Cannon.cs" />
     <Compile Include="Config.cs" />
     <Compile Include="Mod.cs" />
+    <Compile Include="NuclearExplosionEffect.cs" />
     <Compile Include="Projectile.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="RemoteProjectile.cs" />
+    <Compile Include="Warhead.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
