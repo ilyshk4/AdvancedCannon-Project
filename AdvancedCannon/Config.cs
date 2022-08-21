@@ -138,7 +138,6 @@ namespace AdvancedCannon
     {
         [XmlElement] public int ParticlesCountPerKilo = 25;
         [XmlElement] public float ParticleTimeToLive = 0.05F;
-        [XmlElement] public float ConeAngle = 180;
     }
 
     public class HEConfig
@@ -171,7 +170,7 @@ namespace AdvancedCannon
     public class HEATConfig
     {
         [XmlElement] public float FragmentMass = 0.01F;
-        [XmlElement] public float VelocityPerKilo = 1500F;
+        [XmlElement] public float VelocityPerKilo = 4000F;
     }
 
     public class SurfaceConfig

@@ -11,7 +11,7 @@ namespace AdvancedCannon
         private void Start()
         {
             AudioSource source = gameObject.AddComponent<AudioSource>();
-            source.clip = Mod.SuperBigExplosion;
+            source.clip = Assets.SuperBigExplosionSound;
             source.Play();
 
             overlay = new Texture2D(1, 1);

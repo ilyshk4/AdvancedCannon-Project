@@ -46,11 +46,41 @@ namespace AdvancedCannon
             if (detonate.EmulationPressed())
                 Detonate(null);
         }
+
         private void OnCollisionEnter(Collision collision)
         {
             if (collision.relativeVelocity.magnitude > triggerVelocity.Value)
             {
                 Detonate(collision);
+            }
+        }
+
+        private float PreviewHEPenetration(float angle)
+        {
+            return ArmorHelper.PreviewHEPenetration(angle, explosiveFiller.Value);
+        }
+
+        private float PreviewHEATPenetration(float angle)
+        {
+            return ArmorHelper.PreviewHEATPenetration(angle, explosiveFiller.Value);
+        }
+
+        private void Update()
+        {
+            if (BlockMapper.CurrentInstance && BlockMapper.CurrentInstance.Block == BlockBehaviour)
+            {
+                string preview = "N/A";
+
+                if (mode.Value == (int)Mode.HESH)
+                    preview = ($"{explosiveFiller.Value * Mod.Config.Shells.HESH.PenetrationPerKilo}mm");
+                else if (mode.Value == (int)Mode.HE)
+                    preview = ($"{PreviewHEPenetration(0)}mm (0°), {PreviewHEPenetration(30)}mm (30°), {PreviewHEPenetration(60)}mm (60°)");
+                else if (mode.Value == (int)Mode.HEAT)
+                    preview = ($"{PreviewHEATPenetration(0)}mm (0°), {PreviewHEATPenetration(30)}mm (30°), {PreviewHEATPenetration(60)}mm (60°)");
+                else if (mode.Value == (int)Mode.Nuclear)
+                    preview = ($"Total annihilation");
+
+                BlockMapper.CurrentInstance.SetBlockName(preview);
             }
         }
 
@@ -64,20 +94,20 @@ namespace AdvancedCannon
             GetComponentInChildren<SphereCollider>().isTrigger = true;
             Vector3 center = transform.position + transform.forward * 0.5F;
             if (mode.Value == (int)Mode.HE)
-                ServerProjectile.SpawnHighExplosion(center, transform.forward, explosiveFiller.Value);
+                Spawner.SpawnHighExplosion(center, explosiveFiller.Value);
             if (mode.Value == (int)Mode.HEAT)
-                ServerProjectile.SpawnHeatExplosion(center, transform.forward, explosiveFiller.Value);
+                Spawner.SpawnHeatExplosion(center, transform.forward, explosiveFiller.Value);
             if (mode.Value == (int)Mode.HESH)
             {
                 if (collision == null)
-                    ServerProjectile.SpawnHighExplosion(center, transform.forward, explosiveFiller.Value);
+                    Spawner.SpawnHighExplosion(center, explosiveFiller.Value);
                 else
                 {
                     Vector3 point = collision.contacts[0].point;
                     Vector3 normal = collision.contacts[0].normal;
                     Vector3 enter = point + normal * 0.1F;
                     BuildSurface surface = collision.collider.attachedRigidbody?.GetComponent<BuildSurface>();
-                    ServerProjectile.HeshPenetration(collision.collider, enter, normal, surface, explosiveFiller.Value);
+                    Spawner.SpawnHeshSpalling(collision.collider, enter, normal, explosiveFiller.Value, surface);
                 }
             }
             if (mode.Value == (int)Mode.Nuclear)
@@ -94,9 +124,9 @@ namespace AdvancedCannon
                             block.BlockHealth?.DamageBlock(1000);
                         }
                     }
-                    SpawnNuclearExplosionEffect(transform.position);
+                    SpawnNuclearExplosionEffect();
                     if (StatMaster.isHosting)
-                        ModNetworking.SendToAll(Mod.SpawnNuclearExplosionEffect.CreateMessage(transform.position));
+                        Networking.SpawnNuclearExplosionEffect();
                 }
             }
         }
@@ -108,13 +138,12 @@ namespace AdvancedCannon
             Rigidbody.isKinematic = false;
         }
 
-        public static void SpawnNuclearExplosionEffect(Vector3 point)
+        public static void SpawnNuclearExplosionEffect()
         {
             if (LocalMachine.Active().SimulationMachine == null)
                 return;
             GameObject gameObject = new GameObject("Nuclear Explosion Effect");
             gameObject.AddComponent<NuclearExplosionEffect>();
-            gameObject.transform.position = point;
             gameObject.transform.parent = LocalMachine.Active().SimulationMachine;
         }
     }

@@ -17,6 +17,7 @@ namespace AdvancedCannon
         private int _type;
         private float _angle;
         private bool _hit;
+        private float _message;
 
         private ProjectileManager manager;
 
@@ -27,9 +28,9 @@ namespace AdvancedCannon
                 manager = ProjectileManager.Instance;
                 if (manager)
                 {
-                    manager.projectilePrefabs[0].GetComponent<CannonBallDamage>().explosionPrefab = Mod.Empty;
+                    manager.projectilePrefabs[0].GetComponent<CannonBallDamage>().explosionPrefab = Assets.Empty;
                     foreach (var inst in manager.GetPool(0).Pool)
-                        inst.GetComponent<CannonBallDamage>().explosionPrefab = Mod.Empty;
+                        inst.GetComponent<CannonBallDamage>().explosionPrefab = Assets.Empty;
                     Debug.Log("Removed cannonball explosion prefab.");
                 }
             }
@@ -39,6 +40,14 @@ namespace AdvancedCannon
         {
             _hit = false;
             _type = 0;
+
+            _message -= Time.deltaTime;
+
+            if (Input.GetKey(KeyCode.LeftControl) && Input.GetKeyDown(KeyCode.T))
+            {
+                Mod.TraceVisible = !Mod.TraceVisible;
+                _message = 1;
+            }
 
             if (Machine.Active() && Machine.Active().SimulationMachine == null)
             {
@@ -61,9 +70,9 @@ namespace AdvancedCannon
                             BuildSurface surface = enterHit.collider.attachedRigidbody?.GetComponent<BuildSurface>();
                             if (surface)
                             {
-                                Mod.GetSurfaceArmor(surface, out float thickness, out _type);
+                                ArmorHelper.GetSurfaceArmor(surface, out float thickness, out _type);
                                 _thickness = thickness / Mathf.Cos(_angle);
-                                _effThickness = _thickness * Mod.GetArmorModifier(_type);
+                                _effThickness = _thickness * ArmorHelper.GetArmorModifier(_type);
                             }
 
                             _hit = true;
@@ -75,10 +84,15 @@ namespace AdvancedCannon
 
         private void OnGUI()
         {
+            if (_message > 0)
+            {
+                GUI.Label(new Rect(0, 0, 100, 100), Mod.TraceVisible ? "Traces visible." : "Traces invisible.");
+            }
+
             if (_hit)
             {
                 GUI.Label(new Rect(Input.mousePosition.x + 16, Screen.height - Input.mousePosition.y, 500, 500), 
-                    $"{Mathf.RoundToInt(_thickness)}mm {Mod.ArmorTypesKeys[_type]} ({Mathf.RoundToInt(_effThickness)}mm), {Mathf.RoundToInt(_angle * Mathf.Rad2Deg)}°");
+                    $"{Mathf.RoundToInt(_thickness)}mm {ArmorHelper.GetModifierName(_type)} ({Mathf.RoundToInt(_effThickness)}mm), {Mathf.RoundToInt(_angle * Mathf.Rad2Deg)}°");
             }
         }
     }

@@ -23,16 +23,20 @@ namespace AdvancedCannon
         public MSlider explosiveFiller;
         public MSlider explosiveDistance;
         public MSlider explosiveDelay;
+        public MSlider proxFuseRadius;
+        public MSlider proxFuseDistance;
 
         public MToggle apCap;
         public MToggle bCap;
         public MToggle triggered;
+        public MToggle proxFuse;
 
         public MMenu mode;
 
         public override void SafeAwake()
         {
             fire = AddKey("Fire", "fire", KeyCode.C);
+
             velocity = BlockBehaviour.AddSlider("Velocity", "velocity", 950, 300, 2000, "", "ms");
             caliber = BlockBehaviour.AddSlider("Caliber", "caliber", 45, 20, 200, "", "mm");
             mass = BlockBehaviour.AddSlider("Mass", "mass", 3F, 0.5F, 30F, "", "kg");
@@ -40,9 +44,14 @@ namespace AdvancedCannon
             explosiveFiller = BlockBehaviour.AddSlider("Explosive Filler", "explosive-filler", 0, 0, 2F, "", "kg");
             explosiveDistance = BlockBehaviour.AddSlider("Explosive Distance", "explosive-distance", 0, 0, 2F, "", "m");
             explosiveDelay = BlockBehaviour.AddSlider("Fuse Delay", "explosive-delay", 5, 0, 100F, "", "mm");
+            proxFuseRadius = BlockBehaviour.AddSlider("Prox. Fuse Radius", "prox-fuse-radius", 2.5F, 0, 5, "", "m");
+            proxFuseDistance = BlockBehaviour.AddSlider("Prox. Fuse Distance", "prox-fuse-distance", 5, 0, 20, "", "m");
             
             apCap = AddToggle("AP Cap", "ap-cap", false);
             bCap = AddToggle("B Cap", "b-cap", false);
+            proxFuse = AddToggle("Prox. Fuse", "prox-fuse", false);
+
+            proxFuse.Toggled += ProxFuse_Toggled;
 
             mode = AddMenu("mode", 0, MODES);
 
@@ -51,58 +60,55 @@ namespace AdvancedCannon
             caliber.ValueChanged += Caliber_ValueChanged;
         }
 
+        private void ProxFuse_Toggled(bool isActive)
+        {
+            proxFuseRadius.DisplayInMapper = isActive;
+            proxFuseDistance.DisplayInMapper = isActive;
+        }
+
         private void Start()
         {
             Mode_ValueChanged(mode.Value);
         }
 
-        private float GetDefaultPenetration(float angle)
+        private float PreviewDefaultPenetration(float angle)
         {
-            return Mathf.RoundToInt(ServerProjectile.CalculatePenetration(angle * Mathf.Deg2Rad, 
-                velocity.Value, mass.Value + explosiveFiller.Value, caliber.Value, apCap.IsActive, false, Mod.Config.Shells.AP.ArmorResistanceFactor));
+            return ArmorHelper.PreviewDefaultPenetration(angle, velocity.Value, mass.Value, explosiveFiller.Value, caliber.Value, apCap.IsActive);
         }
 
-        private float GetAPFSDSPenetration(float angle)
+        private float PreviewAPFSDSPenetration(float angle)
         {
-            return Mathf.RoundToInt(ServerProjectile.CalculatePenetration(angle * Mathf.Deg2Rad, 
-                velocity.Value, mass.Value + explosiveFiller.Value, caliber.Value * Mod.Config.Shells.APFSDS.CaliberScale, true, true));
+            return ArmorHelper.PreviewAPFSDSPenetration(angle, velocity.Value, mass.Value, explosiveFiller.Value, caliber.Value);
         }
-        private float GetHEPenetration(float angle)
+
+        private float PreviewHEPenetration(float angle)
         {
-            return Mathf.RoundToInt(ServerProjectile.CalculatePenetration(angle * Mathf.Deg2Rad, 
-                Mod.Config.Shells.HE.BaseVelocity + explosiveFiller.Value * Mod.Config.Shells.HE.VelocityPerKilo, 
-                Mod.Config.Shells.HE.FragmentMass, Mod.Config.Shells.HE.FragmentCaliber, false, false));
+            return ArmorHelper.PreviewHEPenetration(angle, explosiveFiller.Value);
         }
-        private float GetHEATPenetration(float angle)
-        {   
-            return Mathf.RoundToInt(ServerProjectile.CalculatePenetration(angle * Mathf.Deg2Rad, 
-                Mod.Config.Shells.HEAT.VelocityPerKilo * explosiveFiller.Value, Mod.Config.Shells.HEAT.FragmentMass, 10, false, false));
+
+        private float PreviewHEATPenetration(float angle)
+        {
+            return ArmorHelper.PreviewHEATPenetration(angle, explosiveFiller.Value);
         }
 
         private void Update()
         {
             if (BlockMapper.CurrentInstance && BlockMapper.CurrentInstance.Block == BlockBehaviour)
             {
+                string preview;
+
                 if (mode.Value == (int)Mode.APFSDS)
-                {
-                    BlockMapper.CurrentInstance.SetBlockName($"{GetAPFSDSPenetration(0)}mm (0°), {GetAPFSDSPenetration(30)}mm (30°), {GetAPFSDSPenetration(60)}mm (60°)");
-                }
+                    preview = ($"{PreviewAPFSDSPenetration(0)}mm (0°), {PreviewAPFSDSPenetration(30)}mm (30°), {PreviewAPFSDSPenetration(60)}mm (60°)");
                 else if (mode.Value == (int)Mode.HESH)
-                {
-                    BlockMapper.CurrentInstance.SetBlockName($"{explosiveFiller.Value * Mod.Config.Shells.HESH.PenetrationPerKilo}mm");
-                }
+                    preview = ($"{explosiveFiller.Value * Mod.Config.Shells.HESH.PenetrationPerKilo}mm");
                 else if (mode.Value == (int)Mode.HE)
-                {
-                    BlockMapper.CurrentInstance.SetBlockName($"{GetHEPenetration(0)}mm (0°), {GetHEPenetration(30)}mm (30°), {GetHEPenetration(60)}mm (60°)");
-                }
+                    preview = ($"{PreviewHEPenetration(0)}mm (0°), {PreviewHEPenetration(30)}mm (30°), {PreviewHEPenetration(60)}mm (60°)");
                 else if (mode.Value == (int)Mode.HEAT)
-                {
-                    BlockMapper.CurrentInstance.SetBlockName($"{GetHEATPenetration(0)}mm (0°), {GetHEATPenetration(30)}mm (30°), {GetHEATPenetration(60)}mm (60°)");
-                }
+                    preview = ($"{PreviewHEATPenetration(0)}mm (0°), {PreviewHEATPenetration(30)}mm (30°), {PreviewHEATPenetration(60)}mm (60°)");
                 else
-                {
-                    BlockMapper.CurrentInstance.SetBlockName($"{GetDefaultPenetration(0)}mm (0°), {GetDefaultPenetration(30)}mm (30°), {GetDefaultPenetration(60)}mm (60°)");
-                }
+                    preview = ($"{PreviewDefaultPenetration(0)}mm (0°), {PreviewDefaultPenetration(30)}mm (30°), {PreviewDefaultPenetration(60)}mm (60°)");
+
+                BlockMapper.CurrentInstance.SetBlockName(preview);
             }
         }
 
@@ -120,18 +126,21 @@ namespace AdvancedCannon
             explosiveFiller.DisplayInMapper = true;
             explosiveDistance.DisplayInMapper = true;
             explosiveDelay.DisplayInMapper = true;
+            proxFuse.DisplayInMapper = false;
+            proxFuseRadius.DisplayInMapper = false;
+            proxFuseDistance.DisplayInMapper = false;
 
             if (projMode == Mode.AP)
             {
                 explosiveFiller.DisplayInMapper = false;
                 explosiveDistance.DisplayInMapper = false;
                 explosiveDelay.DisplayInMapper = false;
-                SetAssets(Mod.AP);
+                SetAssets(Assets.AP);
             }
 
             if (projMode == Mode.APHE)
             {
-                SetAssets(Mod.APHE);
+                SetAssets(Assets.APHE);
             }
 
             if (projMode == Mode.HE)
@@ -140,7 +149,9 @@ namespace AdvancedCannon
                 explosiveDelay.DisplayInMapper = false;
                 apCap.DisplayInMapper = false;
                 bCap.DisplayInMapper = false;
-                SetAssets(Mod.HE);
+                proxFuse.DisplayInMapper = true;
+
+                SetAssets(Assets.HE);
             }
 
             if (projMode == Mode.APFSDS)
@@ -150,7 +161,7 @@ namespace AdvancedCannon
                 explosiveDelay.DisplayInMapper = false;
                 apCap.DisplayInMapper = false;
                 bCap.DisplayInMapper = false;
-                SetAssets(Mod.APFSDS);
+                SetAssets(Assets.APFSDS);
             }
 
             if (projMode == Mode.HESH)
@@ -159,7 +170,7 @@ namespace AdvancedCannon
                 explosiveDelay.DisplayInMapper = false;
                 apCap.DisplayInMapper = false;
                 bCap.DisplayInMapper = false;
-                SetAssets(Mod.HESH);
+                SetAssets(Assets.HESH);
             }
 
             if (projMode == Mode.HEAT)
@@ -168,7 +179,7 @@ namespace AdvancedCannon
                 explosiveDelay.DisplayInMapper = false;
                 apCap.DisplayInMapper = false;
                 bCap.DisplayInMapper = false;
-                SetAssets(Mod.HEAT);
+                SetAssets(Assets.HEAT);
             }
         }
 
@@ -199,31 +210,38 @@ namespace AdvancedCannon
         {
             Mode projMode = (Mode)mode.Value;
 
-            ServerProjectile projectile = Mod.SpawnProjectile(transform.position + transform.forward, Color.red, true, BlockBehaviour);
+            ServerProjectile projectile = Spawner.SpawnSingleProjectile(new ProjectileSpawnSettings()
+            {
+                position = transform.position + transform.forward,
+                color = Color.red,
+                cannon = BlockBehaviour
+            });
 
             projectile.body.mass = mass.Value + explosiveFiller.Value;
 
-            projectile.body.velocity = Mod.RandomSpread(transform.forward * velocity.Value, spread.Value);
+            projectile.body.velocity = Utilities.RandomSpread(transform.forward * velocity.Value, spread.Value);
 
             projectile.body.drag = 
                 (0.8F + caliber.Value * 0.002F) 
                 * (bCap.IsActive ? Mod.Config.BallisticCap.Drag : Mod.Config.Shell.BaseDrag);
             
             projectile.arCap = apCap.IsActive || projMode == Mode.APFSDS;
-            projectile.ballisticCap = bCap.IsActive || projMode == Mode.APFSDS;
            
             projectile.timeToLive = Mod.Config.Shell.TimeToLive;
 
             projectile.accurateRaycasting = true;
             projectile.shell = true;
 
-            projectile.highExplosive = projMode == Mode.HE;
+            projectile.he = projMode == Mode.HE;
             projectile.hesh = projMode == Mode.HESH;
             projectile.heat = projMode == Mode.HEAT;
             projectile.explosive = projMode == Mode.APHE;
+            projectile.proxFuse = projMode == Mode.HE && proxFuse.IsActive;
+            projectile.proxFuseDistance = proxFuseDistance.Value;
+            projectile.proxFuseRadius = proxFuseRadius.Value;
 
             if (projMode == Mode.AP || projMode == Mode.APHE)
-                projectile.velocityDivider = Mod.Config.Shells.AP.ArmorResistanceFactor;
+                projectile.armorResistanceFactor = Mod.Config.Shells.AP.ArmorResistanceFactor;
 
             if (projMode == Mode.APFSDS)
             {
@@ -246,10 +264,12 @@ namespace AdvancedCannon
 
         public void SetAssets(ShellAssets assets)
         {
+            MeshRenderer meshRenderer = BlockBehaviour.MeshRenderer;
+
             BlockBehaviour.VisualController.MeshFilter.mesh = assets.mesh;
-            BlockBehaviour.MeshRenderer.material.mainTexture = assets.texture;
-            BlockBehaviour.MeshRenderer.material.SetFloat("_Glossiness", 0F);
-            BlockBehaviour.MeshRenderer.material.SetFloat("_Metallic", 0F);
+            meshRenderer.material.mainTexture = assets.texture;
+            meshRenderer.material.SetFloat("_Glossiness", 0F);
+            meshRenderer.material.SetFloat("_Metallic", 0F);
         }
     }
 }
