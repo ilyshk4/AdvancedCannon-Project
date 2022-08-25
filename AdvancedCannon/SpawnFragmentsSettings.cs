@@ -11,6 +11,7 @@ namespace AdvancedCannon
         public float cone;
         public float mass;
         public bool bounce;
+        public bool accurate;
         public BuildSurface surface;
         public Color color;
         public float timeToLive;

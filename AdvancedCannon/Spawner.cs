@@ -13,6 +13,8 @@ namespace AdvancedCannon
             Transform cannonball;
             if (ProjectileManager.Instance)
             {
+                Helper.Instance.CheckProjectilePrefab();
+
                 byte[] array = new byte[13];
                 int num = 0;
                 NetworkCompression.CompressPosition(settings.position, array, num);
@@ -20,7 +22,7 @@ namespace AdvancedCannon
                 NetworkCompression.CompressRotation(Quaternion.identity, array, num);
                 NetworkAddPiece instance = NetworkAddPiece.Instance;
                 Transform transform = ProjectileManager.Instance
-                    .Spawn(NetworkProjectileType.Cannon, instance.frame, Machine.Active().PlayerID, array);
+                    .Spawn((NetworkProjectileType)Helper.Instance.ProjectileId, instance.frame, Machine.Active().PlayerID, array);
                 cannonball = transform;
             }
             else
@@ -51,9 +53,17 @@ namespace AdvancedCannon
             LineRenderer line = Utilities.CreateProjectileLine();
             line.material.color = settings.color;
 
+            //AudioSource whistle = meshRenderer.gameObject.AddComponent<AudioSource>();
+            //whistle.spatialBlend = 1;
+            //whistle.loop = true;
+            //whistle.clip = Assets.Loop0;
+            //whistle.Play();
+            //
+            //Helper.Instance.StartCoroutine(Utilities.TimescalePitch(whistle));
+
             Rigidbody rigidbody = obj.GetComponent<Rigidbody>();
 
-            NetworkCannonball network = obj.GetComponent<NetworkCannonball>();
+            ModNetworkProjectile network = obj.GetComponent<ModNetworkProjectile>();
 
             ServerProjectile projectile = obj.AddComponent<ServerProjectile>();
             projectile.body = rigidbody;
@@ -107,6 +117,7 @@ namespace AdvancedCannon
                 fragment.body.velocity = fragmentDirection.normalized * Mathf.Max(fragmentDirection.magnitude * angleSpeedModifier, 150);
                 fragment.dontRicochet = !settings.bounce;
                 fragment.fragment = true;
+                fragment.accurateRaycasting = settings.accurate;
                 fragment.caliber = 10;
                 fragment.timeToLive = settings.timeToLive;
             }
@@ -197,7 +208,8 @@ namespace AdvancedCannon
                 cone = 1,
                 mass = Mod.Config.Shells.HEAT.FragmentMass,
                 color = Color.white,
-                timeToLive = Mod.Config.Spalling.TimeToLive
+                timeToLive = Mod.Config.Spalling.TimeToLive,
+                accurate = true
             });
         }
 
@@ -210,7 +222,7 @@ namespace AdvancedCannon
                 {
                     position = position,
                     color = Color.yellow,
-                    invisible = true
+                    invisible = true,
                 });
                 Vector3 fragmentDirection = Random.insideUnitSphere.normalized;
                 fragment.body.mass = Mod.Config.Shells.HE.FragmentMass;
@@ -218,6 +230,7 @@ namespace AdvancedCannon
                 fragment.fragment = true;
                 fragment.caliber = Mod.Config.Shells.HE.FragmentCaliber;
                 fragment.timeToLive = Mod.Config.Shells.HE.FragmentTimeToLive;
+                fragment.accurateRaycasting = true;
             }
         }
     }

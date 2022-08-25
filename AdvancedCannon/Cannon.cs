@@ -38,10 +38,10 @@ namespace AdvancedCannon
             fire = AddKey("Fire", "fire", KeyCode.C);
 
             velocity = BlockBehaviour.AddSlider("Velocity", "velocity", 950, 300, 2000, "", "ms");
-            caliber = BlockBehaviour.AddSlider("Caliber", "caliber", 45, 20, 200, "", "mm");
+            caliber = BlockBehaviour.AddSlider("Caliber", "caliber", 45, 5, 200, "", "mm");
             mass = BlockBehaviour.AddSlider("Mass", "mass", 3F, 0.5F, 30F, "", "kg");
             spread = BlockBehaviour.AddSlider("Spread", "spread", 0.5F, 0, 5, "", "°");
-            explosiveFiller = BlockBehaviour.AddSlider("Explosive Filler", "explosive-filler", 0, 0, 2F, "", "kg");
+            explosiveFiller = BlockBehaviour.AddSlider("Explosive Filler", "explosive-filler", 0, 0, 10F, "", "kg");
             explosiveDistance = BlockBehaviour.AddSlider("Explosive Distance", "explosive-distance", 0, 0, 2F, "", "m");
             explosiveDelay = BlockBehaviour.AddSlider("Fuse Delay", "explosive-delay", 5, 0, 100F, "", "mm");
             proxFuseRadius = BlockBehaviour.AddSlider("Prox. Fuse Radius", "prox-fuse-radius", 2.5F, 0, 5, "", "m");
@@ -69,8 +69,17 @@ namespace AdvancedCannon
         private void Start()
         {
             Mode_ValueChanged(mode.Value);
-        }
 
+            if (IsSimulating)
+            {
+                BlockBehaviour.GetComponentInChildren<CapsuleCollider>().isTrigger = true;
+
+                 if (BlockBehaviour.iJointTo != null)
+                    foreach (var joint in BlockBehaviour.iJointTo)
+                        joint.breakForce = joint.breakTorque = float.PositiveInfinity;
+            }
+        }
+            
         private float PreviewDefaultPenetration(float angle)
         {
             return ArmorHelper.PreviewDefaultPenetration(angle, velocity.Value, mass.Value, explosiveFiller.Value, caliber.Value, apCap.IsActive);

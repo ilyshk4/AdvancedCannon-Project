@@ -47,7 +47,7 @@ namespace AdvancedCannon
             int count = (int)msg.GetData(3);
 
             Helper.Instance
-                .StartCoroutine(TryFor(() => RemoteAddPoint(id, uid, point, count), 1));
+                .StartCoroutine(TryFor(() => RemoteAddPoint(id, uid, point, count), 3));
         }
 
         private static void OnSetupRemoteProjectile(Message msg)
@@ -62,7 +62,7 @@ namespace AdvancedCannon
             color.a = 1F;
 
             Helper.Instance
-                .StartCoroutine(TryFor(() => RemoteSetupProjectile(id, uid, origin, color, cannonRef, surfaceRef), 1));
+                .StartCoroutine(TryFor(() => RemoteSetupProjectile(id, uid, origin, color, cannonRef, surfaceRef), 3));
         }
         private static bool RemoteAddPoint(int id, int uid, Vector3 point, int count)
         {
@@ -166,7 +166,7 @@ namespace AdvancedCannon
             if (!ProjectileManager.Instance)
                 return null;
 
-            foreach (var item in ProjectileManager.Instance.GetPool(0).Active)
+            foreach (var item in ProjectileManager.Instance.GetPool(Helper.Instance.ProjectileId).Active)
                 if (item.id == id)
                     return item;
             return null;

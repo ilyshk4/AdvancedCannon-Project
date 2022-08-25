@@ -36,8 +36,8 @@ namespace AdvancedCannon
         public static void GetSurfaceArmor(BuildSurface surface, out float thickness, out int type)
         {
             GetMapperTypes(surface, out MSlider armorThickness, out MMenu armorType);
-            thickness = armorThickness.Value;
-            type = armorType.Value;
+            thickness = armorThickness?.Value ?? 0;
+            type = armorType?.Value ?? 0;
         }
 
         public static float GetSurfaceThickness(BuildSurface surface, float angle)
@@ -64,6 +64,17 @@ namespace AdvancedCannon
         {
             MSlider thickness = surface.AddSlider(ARMOR_THICKNESS_NAME, ArmorHelper.ARMOR_THICKNESS_KEY, 20, 5, 500, "", "mm");
             MMenu type = surface.AddMenu(ArmorHelper.ARMOR_TYPE_KEY, 0, ArmorHelper.ArmorTypesKeys);
+
+            thickness.ValueChanged += (value) =>
+            {
+                MSlider customMass = (MSlider)surface.GetMapperType("bmt-custom-mass");
+                if (customMass != null)
+                    if (Input.GetMouseButtonUp(0) || Input.GetKeyDown(KeyCode.KeypadEnter))
+                    {
+                        customMass.Value = Mod.GetSurfaceMass(surface, value, GetArmorModifier(type.Value));
+                        customMass.ApplyValue();
+                    }
+            };
 
             type.ValueChanged += (value) =>
             {

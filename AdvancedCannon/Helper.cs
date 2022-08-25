@@ -19,25 +19,36 @@ namespace AdvancedCannon
         private bool _hit;
         private float _message;
 
-        private ProjectileManager manager;
-
-        private void FixedUpdate()
-        {
-            if (manager != ProjectileManager.Instance)
-            {
-                manager = ProjectileManager.Instance;
-                if (manager)
-                {
-                    manager.projectilePrefabs[0].GetComponent<CannonBallDamage>().explosionPrefab = Assets.Empty;
-                    foreach (var inst in manager.GetPool(0).Pool)
-                        inst.GetComponent<CannonBallDamage>().explosionPrefab = Assets.Empty;
-                    Debug.Log("Removed cannonball explosion prefab.");
-                }
-            }
-        }
-
+        private int projectileId = -1;
+        public int ProjectileId => projectileId;
+        
         private void Update()
         {
+            CheckProjectilePrefab();
+
+            if (BlockMapper.CurrentInstance && BlockMapper.CurrentInstance.Block.Prefab.ID == (int)BlockType.BuildSurface)
+            {
+                BlockBehaviour block = BlockMapper.CurrentInstance.Block;
+                if (block)
+                {
+                    ArmorHelper.GetSurfaceArmor((BuildSurface)block, out float thickness, out int armorType);
+                    if (armorType == ArmorHelper.REACTIVE_INDEX)
+                        thickness = 20;
+
+                    float surfaceMass = Mod.GetSurfaceMass(block, thickness, ArmorHelper.GetArmorModifier(armorType));
+                    float mass = surfaceMass;
+
+                    if (block.Rigidbody && block.Rigidbody.mass > mass)
+                        mass = block.Rigidbody.mass;
+
+                    MSlider customMass = (MSlider)block.GetMapperType("bmt-custom-mass");
+                    if (customMass != null && customMass.Value > mass)
+                        mass = customMass.Value;
+
+                    BlockMapper.CurrentInstance.SetBlockName(mass.ToString("0.00kg"));
+                }
+            }
+
             _hit = false;
             _type = 0;
 
@@ -94,6 +105,61 @@ namespace AdvancedCannon
                 GUI.Label(new Rect(Input.mousePosition.x + 16, Screen.height - Input.mousePosition.y, 500, 500), 
                     $"{Mathf.RoundToInt(_thickness)}mm {ArmorHelper.GetModifierName(_type)} ({Mathf.RoundToInt(_effThickness)}mm), {Mathf.RoundToInt(_angle * Mathf.Rad2Deg)}°");
             }
+        }
+
+        public void CheckProjectilePrefab()
+        {
+            if (ProjectileManager.Instance)
+            {
+                if (projectileId == -1)
+                    AddProjectilePrefab();
+                try { if (projectileId != -1) ProjectileManager.Instance.GetPool(projectileId); } catch { AddProjectilePrefab(); }
+            }
+        }
+
+        public void AddProjectilePrefab()
+        {
+            ProjectileManager manager = ProjectileManager.Instance;
+
+            projectileId = manager.projectilePrefabs.Length;
+
+            GameObject copy = Instantiate(manager.projectilePrefabs[0]);
+            copy.SetActive(false);
+
+            NetworkProjectile original = copy.GetComponent<NetworkProjectile>();
+            NetworkProjectile network = copy.AddComponent<ModNetworkProjectile>();
+
+            DestroyImmediate(copy.GetComponent<CannonBallDamage>());
+            DestroyImmediate(original);
+
+            network.fireController = original.fireController;
+            network.fireTag = original.fireTag;
+            network.hasBase = original.hasBase;
+            network.hasCogMotorDamage = original.hasCogMotorDamage;
+            network.hasFireController = original.hasFireController;
+            network.hasProjectileScript = original.hasProjectileScript;
+            network.hasWheelSmoke = original.hasWheelSmoke;
+            network.iceTag = original.iceTag;
+            network.id = original.id;
+            network.isBaseBlock = original.isBaseBlock;
+            network.isBlock = original.isBlock;
+            network.isDestroyed = original.isDestroyed;
+            network.isEssential = original.isEssential;
+            network.myTransform = original.myTransform;
+            network.playerId = original.playerId;
+            network.pollTransform = original.pollTransform;
+            network.projectileInfo = original.projectileInfo;
+            network.projectileScript = original.projectileScript;
+            network.sendEntity = original.sendEntity;
+            network.staticIndex = original.staticIndex;
+            network.transformRotation = original.transformRotation;
+            network.turningOff = original.turningOff;
+            network.wheelSmoke = original.wheelSmoke;
+
+            network.projectileInfo.projectileType = (NetworkProjectileType)projectileId;
+
+            manager.AddAdditionalProjectile(projectileId, copy);
+            Debug.Log($"Added additional projectile {manager.GetPool(projectileId)}");
         }
     }
 }

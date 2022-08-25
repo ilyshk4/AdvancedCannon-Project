@@ -7,6 +7,6 @@ namespace AdvancedCannon
     {
         public const float EXIT_RAYCAST_DISTANCE = 10F;
         public const float HIT_OFFSET = 0.1F;
-        public const float HEAT_HIT_OFFSET = 0.2F;
+        public const float SHELL_HIT_OFFSET = 0.3F;
     }
 }

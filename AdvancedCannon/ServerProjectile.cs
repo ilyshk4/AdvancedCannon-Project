@@ -60,7 +60,6 @@ namespace AdvancedCannon
             timeToLive -= Time.fixedDeltaTime;
 
             if (body.velocity.magnitude < Mod.Config.Shell.MinVelocity 
-                || OutOfBounds(transform.position) 
                 || timeToLive <= 0)
             {
                 Stop();
@@ -75,6 +74,9 @@ namespace AdvancedCannon
                 _exploded = true;
                 Vector3 position = _lastPosition + (transform.position - _lastPosition).normalized * oldExplodeDistance;
                 Spawner.SpawnExplosion(position, explosiveFiller);
+                Stop();
+                AddTracePoint(position);
+                return;
             }
 
             if (_lastPosition != transform.position)
@@ -90,6 +92,8 @@ namespace AdvancedCannon
                     Collider collider = hit.collider;
                     float angle = Vector3.Angle(normal, -direction) * Mathf.Deg2Rad;
 
+                    Vector3 shellEnter = start - direction.normalized * Consts.SHELL_HIT_OFFSET;
+
                     if (fragment && hitSide)
                     {
                         Stop();
@@ -102,8 +106,8 @@ namespace AdvancedCannon
 
                         if (he)
                         {
-                            Spawner.SpawnHighExplosion(transform.position, explosiveFiller);
-                            AddTracePoint(transform.position);
+                            Spawner.SpawnHighExplosion(shellEnter, explosiveFiller);
+                            AddTracePoint(shellEnter);
                             Stop();
                             return;
                         }
@@ -169,10 +173,10 @@ namespace AdvancedCannon
                                 if (shell)
                                 {
                                     float powerPerArea = (body.velocity.magnitude * body.velocity.magnitude * body.mass) / (caliber * caliber);
-
-                                    int fragmentsCount = Mathf.CeilToInt(powerPerArea * 0.01F * Mod.Config.Spalling.CountFactor);
+                                    float thicknessFactor = Mod.Config.Spalling.ThicknessFactor * thickness;
+                                    int fragmentsCount = Mathf.CeilToInt(powerPerArea * 0.0025F * Mod.Config.Spalling.ForceCountFactor * thicknessFactor);
                                     fragmentsCount = Mathf.Clamp(fragmentsCount, 5, 25);
-                                    fragmentsCone *= Mathf.Min(powerPerArea * 0.0015F * Mod.Config.Spalling.ConeFactor, 70);
+                                    fragmentsCone *= Mathf.Min(powerPerArea * 0.0015F * Mod.Config.Spalling.ForceConeFactor, 70);
 
                                     float fragmentsTotalMass = 0.033F * (surface ? surface.currentType.density : 1);
                                     float fragmentMass = fragmentsTotalMass / fragmentsCount;
@@ -205,7 +209,7 @@ namespace AdvancedCannon
 
                                 if (heat)
                                 {
-                                    Spawner.SpawnHeatExplosion(start - direction.normalized * Consts.HEAT_HIT_OFFSET, body.velocity, explosiveFiller);
+                                    Spawner.SpawnHeatExplosion(shellEnter, body.velocity, explosiveFiller);
                                     AddTracePoint(enter);
                                     Stop();
                                     return;
@@ -213,7 +217,7 @@ namespace AdvancedCannon
 
                                 if (he)
                                 {
-                                    Spawner.SpawnHighExplosion(enter, explosiveFiller);
+                                    Spawner.SpawnHighExplosion(shellEnter, explosiveFiller);
                                     AddTracePoint(enter);
                                     Stop();
                                     return;
@@ -285,52 +289,48 @@ namespace AdvancedCannon
             Quaternion.AngleAxis(-90, Vector3.right),
         };
 
+        private static readonly float[] _scales = new float[]
+        {
+            1F
+        };
+
         private bool Raycast(Vector3 position, Vector3 direction, float magnitude, int hitLayerMask, out RaycastHit hit, out BuildSurface surface, out bool hitSide)
         {
-            Vector3 length = direction.normalized * Mathf.Max(caliber * Mod.Config.Shell.Scale / 200, 0.1F);
+            Vector3 length = direction.normalized * Mathf.Max(caliber * Mod.Config.Shell.Scale / 200, 0.15F);
             hit = default;
             surface = null;
             hitSide = false;
 
-            for (int i = 0; i < _offsets.Length; i++)
-            {
-                var offset = _offsets[i] * length;
-                if (Physics.Raycast(position + offset, direction, out RaycastHit other, magnitude, hitLayerMask, QueryTriggerInteraction.Ignore))
+            foreach (var scale in _scales)
+                for (int i = 0; i < _offsets.Length; i++)
                 {
-                    hit = other;
-
-                    surface = hit.collider?.attachedRigidbody?.GetComponent<BuildSurface>();
-
-                    if (surface)
+                    var offset = _offsets[i] * length * scale;
+                    if (Physics.Raycast(position + offset, direction, out RaycastHit other, magnitude, hitLayerMask, QueryTriggerInteraction.Ignore))
                     {
-                        hitSide = Mathf.Abs(Vector3.Dot(hit.collider.transform.up, hit.normal)) < 0.001F;
+                        hit = other;
 
-                        if (hitSide)
-                            continue;
-                        else
+                        surface = hit.collider?.attachedRigidbody?.GetComponent<BuildSurface>();
+
+                        if (surface)
+                        {
+                            hitSide = Mathf.Abs(Vector3.Dot(hit.collider.transform.up, hit.normal)) < 0.001F;
+
+                            if (hitSide)
+                                continue;
+                            else
+                                return true;
+                        }
+
+                        if (hit.collider)
                             return true;
                     }
 
-                    if (hit.collider)
-                        return true;
+                    if (!accurateRaycasting)
+                        return false;
                 }
-
-                if (!accurateRaycasting)
-                    return false;
-            }
 
             return false;
         }
-
-        private bool OutOfBounds(Vector3 position)
-        {
-            const float bounds = 900;
-            return 
-                Mathf.Abs(position.x) > bounds
-                || Mathf.Abs(position.y) > bounds
-                || Mathf.Abs(position.z) > bounds;
-        }
-
         private void Ricochet(Vector3 direction, Vector3 enter, Vector3 normal, float angle)
         {
             transform.position = enter;
@@ -357,7 +357,7 @@ namespace AdvancedCannon
                     byte[] array = new byte[13];
                     NetworkCompression.CompressPosition(transform.position, array, 0);
                     NetworkCompression.CompressRotation(transform.rotation, array, 6);
-                    ProjectileManager.Instance.Despawn(GetComponent<NetworkCannonball>(), array);
+                    ProjectileManager.Instance.Despawn(GetComponent<NetworkProjectile>(), array);
                 }
             }
             else
@@ -370,7 +370,7 @@ namespace AdvancedCannon
 
         public void AddTracePoint(Vector3 point)
         {
-            if (line == null || point == Vector3.zero || OutOfBounds(point))
+            if (line == null || point == Vector3.zero)
                 return;
 
             line.SetVertexCount(_vertexCount + 1);

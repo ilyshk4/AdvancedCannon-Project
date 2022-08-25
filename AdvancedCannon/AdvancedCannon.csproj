@@ -54,6 +54,7 @@
     <Compile Include="Cannon.cs" />
     <Compile Include="Config.cs" />
     <Compile Include="Mod.cs" />
+    <Compile Include="ModNetworkProjectile.cs" />
     <Compile Include="Networking.cs" />
     <Compile Include="NuclearExplosionEffect.cs" />
     <Compile Include="ProjectileSpawnSettings.cs" />
@@ -64,6 +65,7 @@
     <Compile Include="Spawner.cs" />
     <Compile Include="SpawnFragmentsSettings.cs" />
     <Compile Include="Utilities.cs" />
+    <Compile Include="FXBlock.cs" />
     <Compile Include="Warhead.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

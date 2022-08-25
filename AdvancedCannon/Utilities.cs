@@ -16,6 +16,7 @@ namespace AdvancedCannon
             line.receiveShadows = false;
             line.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             line.SetWidth(0.02F, 0.02F);
+            line.enabled = Mod.TraceVisible;
 
             return line;
         }
@@ -26,6 +27,15 @@ namespace AdvancedCannon
 
             return Quaternion.LookRotation(direction + Vector3.one * 0.01F) * (Quaternion.AngleAxis(offset.x * spread, Vector3.right)
                 * Quaternion.AngleAxis(offset.y * spread, Vector3.up)) * Vector3.forward * direction.magnitude;
+        }
+
+        public static IEnumerator TimescalePitch(AudioSource source)
+        {
+            while (source)
+            {
+                source.pitch = Time.timeScale;
+                yield return new WaitForEndOfFrame();
+            }
         }
     }
 }

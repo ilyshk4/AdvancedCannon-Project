@@ -115,8 +115,9 @@ namespace AdvancedCannon
     public class SpallingConfig
     {
         [XmlElement] public float BaseConeAngle = 45;
-        [XmlElement] public float CountFactor = 0.75F;
-        [XmlElement] public float ConeFactor = 1F;
+        [XmlElement] public float ForceCountFactor = 0.75F;
+        [XmlElement] public float ThicknessFactor = 0.01F;
+        [XmlElement] public float ForceConeFactor = 1F;
         [XmlElement] public float TimeToLive = 0.05F;
     }
 
@@ -131,6 +132,7 @@ namespace AdvancedCannon
     }
     public class APConfig
     {
+        [XmlElement] public float Power = 1F;
         [XmlElement] public float ArmorResistanceFactor = 2080;
     }
 
@@ -143,11 +145,11 @@ namespace AdvancedCannon
     public class HEConfig
     {
         [XmlElement] public int MinFragmentsCount = 5;
-        [XmlElement] public int FragmentsCountPerKilo = 10;
+        [XmlElement] public int FragmentsCountPerKilo = 5;
         [XmlElement] public float FragmentTimeToLive = 0.03F;
-        [XmlElement] public float FragmentMass = 0.05F;
+        [XmlElement] public float FragmentMass = 0.01F;
         [XmlElement] public float BaseVelocity = 150F;
-        [XmlElement] public float VelocityPerKilo = 1500F;
+        [XmlElement] public float VelocityPerKilo = 400F;
         [XmlElement] public float FragmentCaliber = 10F;
 
     }

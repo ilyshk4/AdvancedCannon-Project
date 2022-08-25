@@ -10,6 +10,7 @@ using Vector3 = UnityEngine.Vector3;
 
 namespace AdvancedCannon
 {
+    // Break surface. + ShootingModule
     public class Mod : ModEntryPoint
     {
         public static readonly string CONFIG_PATH = "Config.xml";
@@ -64,17 +65,24 @@ namespace AdvancedCannon
         {
             BuildSurface surface = (BuildSurface)block.InternalObject;
 
+            surface.wood.breakable = false;
+
             ArmorHelper.AddMapperTypes(surface);
 
-            if (block.SimBlock != null)
+            if (block.SimBlock != null && 
+                (StatMaster.isHosting || !StatMaster.isMP || StatMaster.isLocalSim))
                 block.SimBlock.InternalObject.StartCoroutine(InitBuildSurfaceBody(block));
         }
 
         IEnumerator InitBuildSurfaceBody(Block block)
         {
-            yield return new WaitForFixedUpdate();
+            for (int i = 0; i < 3; i++)
+                yield return new WaitForFixedUpdate();
+            while (block.SimBlock.InternalObject.Rigidbody.isKinematic)
+                yield return new WaitForFixedUpdate();
 
             BuildSurface surface = (BuildSurface)block.InternalObject;
+
             ArmorHelper.GetSurfaceArmor(surface, out float thickness, out int armorType);
 
             if (armorType == ArmorHelper.REACTIVE_INDEX)
@@ -85,18 +93,17 @@ namespace AdvancedCannon
 
             float density = ArmorHelper.GetArmorModifier(armorType);
 
-            foreach (var i in block.SimBlock.InternalObject.transform.GetComponentsInChildren<ConfigurableJoint>())
-                i.breakForce = i.breakTorque = float.PositiveInfinity;
+            Rigidbody body = block.SimBlock.InternalObject.Rigidbody;
 
-            BlockHealthBar blockHealth = block.SimBlock.InternalObject.BlockHealth;
-            if (blockHealth)
-                blockHealth.health = float.PositiveInfinity;
+            body.mass = Mathf.Max(GetSurfaceMass(block.InternalObject, thickness, density), body.mass);
+        }
 
+        public static float GetSurfaceMass(BlockBehaviour block, float thickness, float density)
+        {
             float size = 0;
-            foreach (var collider in block.SimBlock.InternalObject.GetComponentsInChildren<BoxCollider>())
+            foreach (var collider in block.transform.Find("SimColliders").GetComponentsInChildren<BoxCollider>(true))
                 size += collider.size.x * collider.size.y * collider.size.z;
-
-            block.SimBlock.InternalObject.Rigidbody.mass = size * thickness * Mod.Config.Surface.BaseDensity * density;
+            return size * thickness * Mod.Config.Surface.BaseDensity * density;
         }
     }
 }
