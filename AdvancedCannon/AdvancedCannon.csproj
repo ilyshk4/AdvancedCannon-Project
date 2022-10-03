@@ -49,6 +49,7 @@
     <Compile Include="ArmorHelper.cs" />
     <Compile Include="Assets.cs" />
     <Compile Include="BlockExtensions.cs" />
+    <Compile Include="EffectsSpawner.cs" />
     <Compile Include="Consts.cs" />
     <Compile Include="Helper.cs" />
     <Compile Include="Cannon.cs" />
@@ -64,6 +65,7 @@
     <Compile Include="ShellAssets.cs" />
     <Compile Include="Spawner.cs" />
     <Compile Include="SpawnFragmentsSettings.cs" />
+    <Compile Include="TracerController.cs" />
     <Compile Include="Utilities.cs" />
     <Compile Include="FXBlock.cs" />
     <Compile Include="Warhead.cs" />

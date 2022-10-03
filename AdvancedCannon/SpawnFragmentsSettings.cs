@@ -8,6 +8,7 @@ namespace AdvancedCannon
         public Vector3 position;
         public Vector3 velocity;
         public int count;
+        public int spallingPerFragment;
         public float cone;
         public float mass;
         public bool bounce;

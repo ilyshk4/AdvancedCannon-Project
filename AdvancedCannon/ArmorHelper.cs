@@ -71,7 +71,7 @@ namespace AdvancedCannon
                 if (customMass != null)
                     if (Input.GetMouseButtonUp(0) || Input.GetKeyDown(KeyCode.KeypadEnter))
                     {
-                        customMass.Value = Mod.GetSurfaceMass(surface, value, GetArmorModifier(type.Value));
+                        customMass.Value = Mathf.Max(customMass.Value, Mod.GetSurfaceMass(surface, value, GetArmorModifier(type.Value)));
                         customMass.ApplyValue();
                     }
             };
@@ -80,6 +80,21 @@ namespace AdvancedCannon
             {
                 thickness.DisplayName = value == REACTIVE_INDEX ? "Reactive Efficiency" : ARMOR_THICKNESS_NAME;
             };
+        }
+
+        public static float GetHeParticlePenetration(float filler, float distance)
+        {
+            const float Intersection = 6.598F;
+
+            float value;
+            if (filler < Intersection)
+                value = 17 * Mathf.Pow(filler, 0.623F);
+            else
+                value = 44 * Mathf.Pow(filler, 0.116F) + filler * 0.047F;
+
+            value /= Mathf.Pow(distance + 1, 0.38F);
+
+            return value;
         }
 
         public static float CalculatePenetration(float angle, float velocity, float mass, float caliber, float angleReduce, float armorResistanceFactor = 2200)
@@ -107,13 +122,6 @@ namespace AdvancedCannon
         {
             return Mathf.RoundToInt(ArmorHelper.CalculatePenetration(angle * Mathf.Deg2Rad,
                 velocity, mass + explosiveFiller, caliber * Mod.Config.Shells.APFSDS.CaliberScale, Mod.Config.Shells.APFSDS.AngleReduce));
-        }
-
-        public static float PreviewHEPenetration(float angle, float explosiveFiller)
-        {
-            return Mathf.RoundToInt(ArmorHelper.CalculatePenetration(angle * Mathf.Deg2Rad,
-                Mod.Config.Shells.HE.BaseVelocity + explosiveFiller * Mod.Config.Shells.HE.VelocityPerKilo,
-                Mod.Config.Shells.HE.FragmentMass, Mod.Config.Shells.HE.FragmentCaliber, 0));
         }
 
         public static float PreviewHEATPenetration(float angle, float explosiveFiller)

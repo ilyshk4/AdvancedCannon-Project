@@ -27,7 +27,7 @@ namespace AdvancedCannon
         {
             mode = AddMenu("mode", 0, MODES);
             triggerVelocity = BlockBehaviour.AddSlider("Trigger Velocity", "trigger-velocity", 100, 0, 1000, "", "ms");
-            explosiveFiller = BlockBehaviour.AddSlider("Explosive Filler", "explosive-filler", 5, 0, 30, "", "kg");
+            explosiveFiller = BlockBehaviour.AddSlider("Explosive Filler", "explosive-filler", 5, 0, 100, "", "kg");
             detonate = AddKey("Detonate", "detonate", KeyCode.None);
 
             if (Rigidbody)
@@ -55,9 +55,9 @@ namespace AdvancedCannon
             }
         }
 
-        private float PreviewHEPenetration(float angle)
+        private float PreviewHEPenetration(float distance)
         {
-            return ArmorHelper.PreviewHEPenetration(angle, explosiveFiller.Value);
+            return (int)ArmorHelper.GetHeParticlePenetration(explosiveFiller.Value, distance);
         }
 
         private float PreviewHEATPenetration(float angle)
@@ -72,9 +72,9 @@ namespace AdvancedCannon
                 string preview = "N/A";
 
                 if (mode.Value == (int)Mode.HESH)
-                    preview = ($"{explosiveFiller.Value * Mod.Config.Shells.HESH.PenetrationPerKilo}mm");
+                    preview = ($"{(int)(Mod.Config.Shells.HESH.PenetrationValue * Mathf.Pow(explosiveFiller.Value, Mod.Config.Shells.HESH.PenetrationPower))}mm ({PreviewHEPenetration(0)}mm (0m), {PreviewHEPenetration(10)}mm (10m))");
                 else if (mode.Value == (int)Mode.HE)
-                    preview = ($"{PreviewHEPenetration(0)}mm (0°), {PreviewHEPenetration(30)}mm (30°), {PreviewHEPenetration(60)}mm (60°)");
+                    preview = ($"{PreviewHEPenetration(0)}mm (0m), {PreviewHEPenetration(10)}mm (10m), {PreviewHEPenetration(25)}mm (25m)");
                 else if (mode.Value == (int)Mode.HEAT)
                     preview = ($"{PreviewHEATPenetration(0)}mm (0°), {PreviewHEATPenetration(30)}mm (30°), {PreviewHEATPenetration(60)}mm (60°)");
                 else if (mode.Value == (int)Mode.Nuclear)
@@ -92,16 +92,15 @@ namespace AdvancedCannon
 
             StartCoroutine(WaitForProjectiles());
             GetComponentInChildren<SphereCollider>().isTrigger = true;
-            Vector3 center = transform.position + transform.forward * 0.5F;
+            Vector3 center = transform.position + transform.forward * 0.5F * transform.localScale.z;
             if (mode.Value == (int)Mode.HE)
                 Spawner.SpawnHighExplosion(center, explosiveFiller.Value);
             if (mode.Value == (int)Mode.HEAT)
                 Spawner.SpawnHeatExplosion(center, transform.forward, explosiveFiller.Value);
             if (mode.Value == (int)Mode.HESH)
             {
-                if (collision == null)
-                    Spawner.SpawnHighExplosion(center, explosiveFiller.Value);
-                else
+                Spawner.SpawnHighExplosion(center, explosiveFiller.Value);
+                if (collision != null)          
                 {
                     Vector3 point = collision.contacts[0].point;
                     Vector3 normal = collision.contacts[0].normal;
