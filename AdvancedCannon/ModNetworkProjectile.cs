@@ -24,6 +24,26 @@ namespace AdvancedCannon
             var meshRenderer = GetComponentInChildren<MeshRenderer>(true);
             var meshFilter = GetComponentInChildren<MeshFilter>(true);
 
+            transform.localScale = Vector3.one;
+            if (cannonRef != null)
+            {
+                transform.localScale = cannonRef.transform.localScale;
+                meshRenderer.enabled = true;
+                meshRenderer.material = cannonRef.MeshRenderer.material;
+                meshFilter.sharedMesh = cannonRef.VisualController.MeshFilter.sharedMesh;
+            }
+
+            if (surfaceRef != null)
+            {
+                transform.localScale = Vector3.one * Random.Range(0.85F, 1.15F);
+                meshRenderer.enabled = true;
+                meshRenderer.sharedMaterial = surfaceRef.MeshRenderer.sharedMaterial;
+                meshFilter.sharedMesh = Assets.SpallingMesh;
+            }
+
+            if (cannonRef == null && surfaceRef == null)
+                meshRenderer.enabled = false;
+
             if (!Networking.HasAuthority)
             {
                 RemoteProjectile remote = gameObject.GetComponent<RemoteProjectile>();
@@ -51,33 +71,29 @@ namespace AdvancedCannon
                         tracer = meshRenderer.gameObject.AddComponent<TracerController>();
                     var cannon = cannonRef ? (Cannon)Block.From(cannonRef).BlockScript : null;
                     tracer.ResetCannon(cannon);
+
+                    if (tracer.smokeTrail)
+                        Destroy(tracer.smokeTrail.gameObject);
+                    if (meshRenderer.enabled && meshFilter.sharedMesh == Assets.Rocket.mesh)
+                    {
+                        EffectsSpawner.AttachRocketTrail(meshFilter.gameObject, out tracer.rocketFlame, out tracer.smokeTrail);
+                    }     
+                }
+
+                if (cannonRef != null)
+                {
+                    remote.UpdateDirection((remote.transform.position - cannonRef.transform.position).normalized);
                 }
             }
-
-            transform.localScale = Vector3.one;
-            if (cannonRef != null)
-            {
-                transform.localScale = cannonRef.transform.localScale;
-                meshRenderer.enabled = true;
-                meshRenderer.material = cannonRef.MeshRenderer.material;
-                meshFilter.sharedMesh = cannonRef.VisualController.MeshFilter.sharedMesh;
-            }
-
-            if (surfaceRef != null)
-            {
-                transform.localScale = Vector3.one * Random.Range(0.85F, 1.15F);
-                meshRenderer.enabled = true;
-                meshRenderer.sharedMaterial = surfaceRef.MeshRenderer.sharedMaterial;
-                meshFilter.sharedMesh = Assets.SpallingMesh;
-            }
-
-            if (cannonRef == null && surfaceRef == null)
-                meshRenderer.enabled = false;
         }
 
         public override void Despawn(byte[] despawnInfo)
         {
             base.Despawn(despawnInfo);
+
+            var tracer = GetComponent<TracerController>();
+            if (tracer)
+                tracer.DestroyRocketTrail();
 
             Reset();
         }
@@ -86,9 +102,6 @@ namespace AdvancedCannon
         {
             var meshRenderer = GetComponentInChildren<MeshRenderer>();
             meshRenderer.enabled = false;
-            var whistle = meshRenderer.gameObject.GetComponent<AudioSource>();
-            if (whistle)
-                whistle.Stop();
         }
     }
 }

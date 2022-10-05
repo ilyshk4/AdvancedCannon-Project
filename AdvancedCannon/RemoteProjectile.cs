@@ -13,6 +13,7 @@ namespace AdvancedCannon
         public int vertexCount;
         public LineRenderer line;
         public MeshRenderer meshRenderer;
+        public GameObject rocketTrail;
 
         private Vector3 _direction;
         private Vector3 _lastPosition;
@@ -32,7 +33,12 @@ namespace AdvancedCannon
         {
             _moved -= Time.deltaTime;
             meshRenderer.gameObject.SetActive(_moved > 0);
-            transform.rotation = Quaternion.LookRotation(_direction + Vector3.one * 0.01F);
+            UpdateDirection(_direction);
+        }
+
+        public void UpdateDirection(Vector3 direction)
+        {
+            transform.rotation = Quaternion.LookRotation(direction + Vector3.one * 0.01F);
         }
     }
 }

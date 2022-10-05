@@ -12,6 +12,7 @@ namespace AdvancedCannon
 
         public LineRenderer tracer;
         public MeshRenderer sphere;
+        public ParticleSystem smokeTrail, rocketFlame;
 
         private float _scale;
 
@@ -57,6 +58,24 @@ namespace AdvancedCannon
             }
             tracer.SetWidth(0, 0);
             sphere.transform.localScale = Vector3.zero;
+
+            if (rocketFlame)
+            {
+                rocketFlame.gameObject.SetActive(false);
+                Destroy(rocketFlame.gameObject);
+            }
+        }
+
+        public void DestroyRocketTrail()
+        {
+            if (smokeTrail)
+                Destroy(smokeTrail.gameObject, 5);
+        }
+
+        private void OnDisable()
+        {
+            if (smokeTrail)
+                smokeTrail.Stop();
         }
 
         private void Update()
@@ -66,6 +85,9 @@ namespace AdvancedCannon
             tracer.SetPosition(0, tracer.transform.position);
             tracer.SetPosition(1, tracer.transform.position + transform.transform.forward * -5F);
             sphere.transform.localScale = Vector3.one * width * _scale;
+
+            if (smokeTrail)
+                smokeTrail.transform.position = transform.position;
         }
     }
 }

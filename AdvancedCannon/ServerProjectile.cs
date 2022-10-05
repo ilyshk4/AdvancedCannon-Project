@@ -44,6 +44,7 @@ namespace AdvancedCannon
         public float distanceTravelled;
         public float appliedForceScale = 1;
         public float heParticleFiller;
+        public float constantVelocity;
 
         private Vector3 _lastPosition;
         private int _vertexCount;
@@ -69,6 +70,8 @@ namespace AdvancedCannon
 
         private void FixedUpdate()
         {
+            body.velocity += constantVelocity * body.velocity.normalized;
+
             bool solid = !(explosiveParticle || he || hesh || heat);
 
             UpdateLookRotation();
@@ -500,6 +503,10 @@ namespace AdvancedCannon
          
         public void Stop()
         {
+            var tracer = GetComponent<TracerController>();
+            if (tracer)
+                tracer.DestroyRocketTrail();
+
             if (StatMaster.isMP && !StatMaster.isLocalSim)
             {
                 if (StatMaster.isHosting)

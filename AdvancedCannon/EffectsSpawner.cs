@@ -28,6 +28,7 @@ namespace AdvancedCannon
         HitHEATSmall,
         HitHEATMedium,
         HitHEATBig,
+        RocketFire
     }        
 
     public static class EffectsSpawner
@@ -90,6 +91,9 @@ namespace AdvancedCannon
 
             if (type == SFXType.HitHEATBig)
                 SpawnSFX(type, Assets.HitHEATBig, position);
+
+            if (type == SFXType.RocketFire)
+                SpawnSFX(type, Assets.RocketFire, position);
         }
 
         private static IEnumerator TimescalePitch(AudioSource source)
@@ -190,6 +194,19 @@ namespace AdvancedCannon
             SpawnAudioClip(clips.GetRandom(), position);
             if (Networking.HasAuthority)
                 SendSpawnSFXMessage(type, position);
+        }
+
+        public static void AttachRocketTrail(GameObject rocket, out ParticleSystem flame, out ParticleSystem smoke)
+        {
+            GameObject trail = Object.Instantiate(Assets.Trail0, rocket.transform.position - rocket.transform.forward * (rocket.transform.localScale.x * 3F), Quaternion.Euler(-rocket.transform.eulerAngles), rocket.transform) as GameObject;
+            trail.transform.localScale *= rocket.transform.localScale.x;
+
+            Transform smokeTransform = trail.transform.GetChild(0);
+            smokeTransform.parent = null;
+            smokeTransform.localScale = Vector3.one * rocket.transform.localScale.x;
+
+            flame = trail.transform.GetChild(0).GetComponent<ParticleSystem>();
+            smoke = smokeTransform.GetComponent<ParticleSystem>();
         }
     }
 }

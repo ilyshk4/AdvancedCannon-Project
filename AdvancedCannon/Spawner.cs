@@ -133,16 +133,7 @@ namespace AdvancedCannon
                 line = Utilities.CreateProjectileLine();
                 line.material.color = settings.color;
             }
-            
-            if (meshRenderer)
-            {
-                TracerController tracer = meshRenderer.gameObject.GetComponent<TracerController>();
-                if (tracer == null)
-                    tracer = meshRenderer.gameObject.AddComponent<TracerController>();
-
-                var cannon = settings.cannon ? (Cannon)Block.From(settings.cannon).BlockScript : null;
-                tracer.ResetCannon(cannon);
-            }
+           
 
             Rigidbody rigidbody = obj.GetComponent<Rigidbody>();
 
@@ -159,11 +150,26 @@ namespace AdvancedCannon
             projectile.uid = uid;
 
             projectile.transform.localScale = Vector3.one;
+
             if (settings.cannon != null)
             {
                 projectile.transform.localScale = settings.cannon.transform.localScale;
                 meshRenderer.material = settings.cannon.MeshRenderer.material;
                 meshFilter.sharedMesh = settings.cannon.VisualController.MeshFilter.sharedMesh;
+            }
+
+            if (meshRenderer)
+            {
+                TracerController tracer = meshRenderer.gameObject.GetComponent<TracerController>();
+                if (tracer == null)
+                    tracer = meshRenderer.gameObject.AddComponent<TracerController>();
+                var cannon = settings.cannon ? (Cannon)Block.From(settings.cannon).BlockScript : null;
+                tracer.ResetCannon(cannon);
+
+                if (tracer.smokeTrail)
+                    Object.Destroy(tracer.smokeTrail.gameObject);
+                if (meshRenderer.enabled && meshFilter.sharedMesh == Assets.Rocket.mesh)
+                    EffectsSpawner.AttachRocketTrail(projectile.gameObject, out tracer.rocketFlame, out tracer.smokeTrail);
             }
 
             if (settings.surface != null)

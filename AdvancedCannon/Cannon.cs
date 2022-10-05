@@ -15,11 +15,11 @@ namespace AdvancedCannon
 
         public static readonly List<string> HE_MODELS = new List<string>()
         {
-            "Shell", "Bomb"
+            "Shell", "Bomb", "Rocket"
         };
 
         enum Mode { AP, APHE, HE, APFSDS, HESH, HEAT };
-        enum HEModel { Shell, Bomb };
+        enum HEModel { Shell, Bomb, Rocket };
 
         public MKey fire;
         public MSlider reload;
@@ -53,7 +53,7 @@ namespace AdvancedCannon
             fire = AddKey("Fire", "fire", KeyCode.C);
 
             reload = BlockBehaviour.AddSlider("Reload", "reload", 0.5F, 0, 100, "", "s");
-            velocity = BlockBehaviour.AddSlider("Velocity", "velocity", 950, 10, 2000, "", "ms");
+            velocity = BlockBehaviour.AddSlider("Velocity", "velocity", 950, 0, 2000, "", "ms");
             caliber = BlockBehaviour.AddSlider("Caliber", "caliber", 45, 5, 350, "", "mm");
             mass = BlockBehaviour.AddSlider("Mass", "mass", 3F, 0.5F, 30F, "", "kg");
             spread = BlockBehaviour.AddSlider("Spread", "spread", 0.5F, 0, 5, "", "°");
@@ -92,6 +92,9 @@ namespace AdvancedCannon
 
                 if ((HEModel)heModel.Value == HEModel.Bomb)
                     SetAssets(Assets.Bomb);
+
+                if ((HEModel)heModel.Value == HEModel.Rocket)
+                    SetAssets(Assets.Rocket);
             }
         }
 
@@ -291,7 +294,19 @@ namespace AdvancedCannon
             if (projMode != Mode.AP && projMode != Mode.APFSDS)
                 projectile.body.mass += explosiveFiller.Value;
 
-            projectile.body.velocity = Utilities.RandomSpread(transform.forward * velocity.Value, spread.Value);
+            bool isRocket = mode.Value == (int)Mode.HE && heModel.Value == (int)HEModel.Rocket;
+
+            if (isRocket)
+            {
+                projectile.constantVelocity = velocity.Value * Time.fixedDeltaTime;
+                EffectsSpawner.SpawnSFX(SFXType.RocketFire, Assets.RocketFire, transform.position);
+            }
+
+            Vector3 selfVelocity = Vector3.zero;
+            if (Rigidbody)
+                selfVelocity = Rigidbody.velocity;
+
+            projectile.body.velocity = selfVelocity + Utilities.RandomSpread(transform.forward * velocity.Value, spread.Value);
 
             bool cappped = projMode == Mode.AP || projMode == Mode.APHE;
 

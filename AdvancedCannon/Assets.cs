@@ -45,16 +45,19 @@ namespace AdvancedCannon
         public static AudioClip[] UnpierceSmall;
         public static AudioClip[] UnpierceBullet;
 
+        public static AudioClip[] RocketFire;
+
         public static GameObject DistantSound;
         public static GameObject Fire0;
         public static GameObject Flash0;
         public static GameObject Whistle;
         public static GameObject Sparkles0;
         public static GameObject Explosion0;
+        public static GameObject Trail0;
 
         public static Mesh Sphere;
 
-        public static ShellAssets AP, APHE, HE, APFSDS, HESH, HEAT, Bomb;
+        public static ShellAssets AP, APHE, HE, APFSDS, HESH, HEAT, Bomb, Rocket;
 
         public static GameObject Empty;
 
@@ -230,6 +233,8 @@ namespace AdvancedCannon
             UnpierceSmall = GetClipRange(sfx, "tank_hit_small2_unpierce_#", 5);
             UnpierceBullet = GetClipRange(sfx, "tank_bullet_impact_ext-#", 6, "000");
 
+            RocketFire = GetClipRange(sfx, "tow_shot-#", 4, "000");
+
             var vfx = ModResource.GetAssetBundle("vfx");
 
             DistantSound = vfx.LoadAsset<GameObject>("DistantSound");
@@ -238,6 +243,7 @@ namespace AdvancedCannon
             Whistle = vfx.LoadAsset<GameObject>("Whistle");
             Sparkles0 = vfx.LoadAsset<GameObject>("Sparkles0");
             Explosion0 = vfx.LoadAsset<GameObject>("Explosion0");
+            Trail0 = vfx.LoadAsset<GameObject>("Trail0");
 
             AP = new ShellAssets("AP");
             HE = new ShellAssets("HE");
@@ -246,6 +252,7 @@ namespace AdvancedCannon
             HESH = new ShellAssets("HESH");
             HEAT = new ShellAssets("HEAT");
             Bomb = new ShellAssets("Bomb");
+            Rocket = new ShellAssets("Rocket");
 
             GameObject obj = GameObject.CreatePrimitive(PrimitiveType.Sphere);
             Sphere = Object.Instantiate(obj.GetComponent<MeshFilter>().mesh);
